@@ -37,7 +37,7 @@ String toHex(const uint8_t* d, size_t n) {
 void onNotify(NimBLERemoteCharacteristic*, uint8_t* data, size_t len, bool) {
   uint32_t now = millis();
   portENTER_CRITICAL_ISR(&mux);
-  if (pendingPresses < 255) pendingPresses++;
+  if (pendingPresses < 255) pendingPresses = (uint8_t)(pendingPresses + 1);
   lastPressMs = now;
   portEXIT_CRITICAL_ISR(&mux);
 
