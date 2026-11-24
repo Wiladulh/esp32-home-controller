@@ -1,0 +1,387 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Home Controller</title>
+<style>
+  :root { --bg:#f5f6f8; --card:#fff; --ink:#1d2330; --muted:#6b7385; --accent:#2563eb; --ok:#16a34a; --bad:#dc2626; --line:#dde1ea; }
+  @media (prefers-color-scheme: dark) {
+    :root { --bg:#0f1218; --card:#181d26; --ink:#e7ebf3; --muted:#8e97a8; --accent:#60a5fa; --ok:#22c55e; --bad:#f87171; --line:#2a3140; }
+  }
+  * { box-sizing: border-box; }
+  body { margin:0; font:15px/1.4 system-ui,-apple-system,Segoe UI,Roboto,sans-serif; background:var(--bg); color:var(--ink); }
+  header { padding:14px 16px; font-weight:600; border-bottom:1px solid var(--line); background:var(--card); display:flex; justify-content:space-between; align-items:center; }
+  main { max-width:760px; margin:0 auto; padding:16px; display:grid; gap:14px; }
+  .card { background:var(--card); border:1px solid var(--line); border-radius:12px; padding:14px; }
+  h2 { font-size:16px; margin:0 0 10px; }
+  .row { display:flex; gap:10px; align-items:center; flex-wrap:wrap; }
+  .grid { display:grid; grid-template-columns:repeat(auto-fill,minmax(220px,1fr)); gap:10px; }
+  .item { border:1px solid var(--line); border-radius:10px; padding:10px; display:flex; justify-content:space-between; align-items:center; gap:8px; }
+  .muted { color:var(--muted); font-size:13px; }
+  button { font:inherit; padding:8px 12px; border-radius:8px; border:1px solid var(--line); background:var(--card); color:var(--ink); cursor:pointer; }
+  button.primary { background:var(--accent); border-color:var(--accent); color:#fff; }
+  button.on { background:var(--ok); border-color:var(--ok); color:#fff; }
+  button.danger { color:var(--bad); }
+  input, select { font:inherit; padding:7px 9px; border-radius:8px; border:1px solid var(--line); background:var(--card); color:var(--ink); width:100%; }
+  label { display:grid; gap:4px; font-size:13px; color:var(--muted); }
+  .pill { font-size:12px; padding:3px 8px; border-radius:99px; border:1px solid var(--line); }
+  .pill.ok { color:var(--ok); } .pill.bad { color:var(--bad); }
+  .warn { border-color:var(--bad); color:var(--bad); }
+  .hidden { display:none !important; }
+  .formgrid { display:grid; grid-template-columns:repeat(auto-fill,minmax(200px,1fr)); gap:10px; }
+  pre { white-space:pre-wrap; font-size:12px; color:var(--muted); max-height:180px; overflow:auto; }
+  #msg { min-height:20px; font-size:13px; }
+</style>
+</head>
+<body>
+<header>
+  <span>Home Controller</span>
+  <span id="net" class="pill">offline</span>
+</header>
+
+<main>
+  <!-- Login -->
+  <section id="login" class="card">
+    <h2>Enter PIN</h2>
+    <div class="row">
+      <input id="pin" type="password" inputmode="numeric" maxlength="6" placeholder="6-digit PIN" style="max-width:200px">
+      <button class="primary" onclick="login()">Unlock</button>
+    </div>
+    <div id="loginMsg" class="muted"></div>
+  </section>
+
+  <!-- Dashboard -->
+  <div id="app" class="hidden" style="display:grid;gap:14px">
+    <div id="pinWarn" class="card warn hidden">Default PIN 123456 is still in use. Change it in Settings.</div>
+
+    <section class="card">
+      <div class="row" style="justify-content:space-between">
+        <h2 style="margin:0">Relays</h2>
+        <span id="conn" class="muted"></span>
+      </div>
+      <div id="relays" class="grid" style="margin-top:10px"></div>
+    </section>
+
+    <section class="card" id="fanCard">
+      <h2>Fan</h2>
+      <div class="row">
+        <span id="fanName" style="min-width:90px"></span>
+        <button onclick="setFan(0)">Off</button>
+        <button onclick="setFan(1)">1</button>
+        <button onclick="setFan(2)">2</button>
+        <button onclick="setFan(3)">3</button>
+        <span id="fanSpeed" class="pill"></span>
+      </div>
+    </section>
+
+    <section class="card" id="sensorCard">
+      <h2>Sensor</h2>
+      <div id="sensorInfo" class="muted">No sensor configured.</div>
+    </section>
+
+    <section class="card">
+      <h2>Settings</h2>
+      <div class="formgrid">
+        <label>WebUI PIN (6 digits)<input id="c_pin" maxlength="6" inputmode="numeric" placeholder="leave empty to keep"></label>
+        <label>Hostname<input id="c_hostname"></label>
+        <label>WiFi SSID<input id="c_ssid"></label>
+        <label>WiFi password<input id="c_wifipass" type="password" placeholder="leave empty to keep"></label>
+      </div>
+
+      <h2 style="margin-top:16px">MQTT</h2>
+      <div class="formgrid">
+        <label>Enabled
+          <select id="c_mqtt_enabled"><option value="true">yes</option><option value="false">no</option></select></label>
+        <label>Scheme
+          <select id="c_mqtt_scheme"><option>wss</option><option>ws</option><option>mqtts</option><option>mqtt</option></select></label>
+        <label>Host<input id="c_mqtt_host"></label>
+        <label>Port<input id="c_mqtt_port" type="number"></label>
+        <label>Path<input id="c_mqtt_path"></label>
+        <label>Topic prefix<input id="c_mqtt_prefix" placeholder="e.g. home1/"></label>
+        <label>MQTT user<input id="c_mqtt_user" placeholder="leave empty to keep"></label>
+        <label>MQTT password<input id="c_mqtt_pass" type="password" placeholder="leave empty to keep"></label>
+      </div>
+
+      <h2 style="margin-top:16px">Relays (name, GPIO, button GPIO)</h2>
+      <div id="relayForm" class="formgrid"></div>
+      <p class="muted">Every enabled relay needs a button GPIO. Button is a momentary switch to GND.</p>
+
+      <h2 style="margin-top:16px">Fan (iTag: 1 click on/off, 2 clicks next speed)</h2>
+      <div class="formgrid">
+        <label>Enabled
+          <select id="c_fan_enabled"><option value="true">yes</option><option value="false">no</option></select></label>
+        <label>Name<input id="c_fan_name"></label>
+        <label>Max speed
+          <select id="c_fan_max"><option>2</option><option>3</option></select></label>
+        <label>Speed 1 GPIO<input id="c_fan_g1" type="number"></label>
+        <label>Speed 2 GPIO<input id="c_fan_g2" type="number"></label>
+        <label>Speed 3 GPIO<input id="c_fan_g3" type="number"></label>
+        <label>iTag enabled
+          <select id="c_itag_enabled"><option value="true">yes</option><option value="false">no</option></select></label>
+        <label>iTag address<input id="c_itag_addr" placeholder="AA:BB:CC:DD:EE:FF"></label>
+      </div>
+      <div class="row" style="margin-top:8px">
+        <button onclick="bleScan()">Scan iTag</button>
+        <button onclick="bleRaw()">Learn mode (raw bytes)</button>
+      </div>
+      <div id="bleResults" class="muted"></div>
+      <pre id="bleRawOut"></pre>
+
+      <h2 style="margin-top:16px">Sensor</h2>
+      <div class="formgrid">
+        <label>Type
+          <select id="c_sensor_type"><option value="0">none</option><option value="1">DHT22</option><option value="2">DS18B20</option></select></label>
+        <label>GPIO<input id="c_sensor_gpio" type="number"></label>
+        <label>Interval (s)<input id="c_sensor_int" type="number" min="5"></label>
+      </div>
+
+      <div class="row" style="margin-top:16px">
+        <button class="primary" onclick="saveConfig()">Save and restart</button>
+        <button onclick="loadConfig()">Reload</button>
+        <button class="danger" onclick="factoryReset()">Factory reset</button>
+      </div>
+      <div id="msg"></div>
+    </section>
+  </div>
+</main>
+
+<script>
+let token = sessionStorage.getItem("token") || "";
+let st = null;
+let cfg = null;
+const $ = (id) => document.getElementById(id);
+
+function setMsg(t, bad) { $("msg").textContent = t; $("msg").className = bad ? "bad" : ""; }
+
+async function api(path, opts = {}) {
+  const headers = { "Content-Type": "application/json" };
+  if (token) headers["Authorization"] = "Bearer " + token;
+  const r = await fetch(path, { ...opts, headers });
+  let body = {};
+  try { body = await r.json(); } catch (e) {}
+  if (r.status === 401 && path !== "/api/login") { logout(); throw new Error("session expired"); }
+  if (!r.ok) throw new Error(body.error || ("HTTP " + r.status));
+  return body;
+}
+
+async function login() {
+  $("loginMsg").textContent = "";
+  try {
+    const r = await api("/api/login", { method: "POST", body: JSON.stringify({ pin: $("pin").value }) });
+    token = r.token;
+    sessionStorage.setItem("token", token);
+    showApp();
+  } catch (e) {
+    $("loginMsg").textContent = e.message;
+  }
+}
+
+function logout() {
+  token = "";
+  sessionStorage.removeItem("token");
+  $("app").classList.add("hidden");
+  $("login").classList.remove("hidden");
+}
+
+function showApp() {
+  $("login").classList.add("hidden");
+  $("app").classList.remove("hidden");
+  loadConfig();
+  refresh();
+}
+
+async function refresh() {
+  if (!token) return;
+  try {
+    st = await api("/api/status");
+    renderStatus();
+  } catch (e) { /* ignored, retry on next tick */ }
+}
+
+function renderStatus() {
+  $("net").textContent = st.mqtt ? "MQTT online" : "MQTT offline";
+  $("net").className = "pill " + (st.mqtt ? "ok" : "bad");
+  $("pinWarn").classList.toggle("hidden", !st.defaultPin);
+  $("conn").textContent = "heap " + Math.round(st.heapInternal / 1024) + " KB" +
+    (st.itagEnabled ? " · iTag " + (st.itag ? "connected" : "not connected") : "");
+
+  $("relays").innerHTML = "";
+  (st.relays || []).forEach(r => {
+    const d = document.createElement("div");
+    d.className = "item";
+    d.innerHTML = `<div><div>${escapeHtml(r.name)}</div><div class="muted">relay ${r.index}</div></div>`;
+    const b = document.createElement("button");
+    b.textContent = r.on ? "ON" : "OFF";
+    b.className = r.on ? "on" : "";
+    b.onclick = () => setRelay(r.index, !r.on);
+    d.appendChild(b);
+    $("relays").appendChild(d);
+  });
+  if (!st.relays || !st.relays.length) $("relays").innerHTML = '<div class="muted">No relays enabled. Open Settings.</div>';
+
+  if (st.fan) {
+    $("fanCard").classList.remove("hidden");
+    $("fanName").textContent = st.fan.name;
+    $("fanSpeed").textContent = "speed " + st.fan.speed + " / " + st.fan.maxSpeed;
+  } else {
+    $("fanCard").classList.add("hidden");
+  }
+
+  if (st.sensor) {
+    const s = st.sensor;
+    $("sensorInfo").textContent = s.valid
+      ? "Temperature: " + s.temp.toFixed(1) + " °C" + (s.hasHumidity ? " · Humidity: " + s.humidity.toFixed(1) + " %" : "")
+      : "Waiting for reading...";
+  } else {
+    $("sensorInfo").textContent = "No sensor configured.";
+  }
+}
+
+function escapeHtml(s) { return String(s).replace(/[&<>"']/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c])); }
+
+async function setRelay(index, on) {
+  try { await api("/api/relay", { method: "POST", body: JSON.stringify({ index, on }) }); refresh(); }
+  catch (e) { alert(e.message); }
+}
+
+async function setFan(speed) {
+  try { await api("/api/fan", { method: "POST", body: JSON.stringify({ speed }) }); refresh(); }
+  catch (e) { alert(e.message); }
+}
+
+// ---- Settings form ----
+function buildRelayForm() {
+  const box = $("relayForm");
+  box.innerHTML = "";
+  for (let i = 0; i < 8; i++) {
+    const r = cfg.relays[i] || {};
+    box.insertAdjacentHTML("beforeend", `
+      <div class="item" style="display:block">
+        <div class="muted" style="margin-bottom:6px">Relay ${i + 1}</div>
+        <label>Enabled
+          <select id="r${i}_en"><option value="true">yes</option><option value="false">no</option></select></label>
+        <label>Name<input id="r${i}_name" value="${escapeHtml(r.name || "Relay " + (i + 1))}"></label>
+        <label>Relay GPIO<input id="r${i}_gpio" type="number" value="${r.gpio ?? -1}"></label>
+        <label>Button GPIO<input id="r${i}_btn" type="number" value="${r.button ?? -1}"></label>
+        <label>Active
+          <select id="r${i}_act"><option value="true">HIGH</option><option value="false">LOW</option></select></label>
+      </div>`);
+    $("r" + i + "_en").value = String(!!r.enabled);
+    $("r" + i + "_act").value = String(r.activeHigh !== false);
+  }
+}
+
+async function loadConfig() {
+  try {
+    cfg = await api("/api/config");
+    $("c_hostname").value = cfg.hostname;
+    $("c_ssid").value = cfg.wifi.ssid;
+    $("c_mqtt_enabled").value = String(cfg.mqtt.enabled);
+    $("c_mqtt_scheme").value = cfg.mqtt.scheme;
+    $("c_mqtt_host").value = cfg.mqtt.host;
+    $("c_mqtt_port").value = cfg.mqtt.port;
+    $("c_mqtt_path").value = cfg.mqtt.path;
+    $("c_mqtt_prefix").value = cfg.mqtt.prefix;
+    $("c_fan_enabled").value = String(cfg.fan.enabled);
+    $("c_fan_name").value = cfg.fan.name;
+    $("c_fan_max").value = String(cfg.fan.maxSpeed);
+    $("c_fan_g1").value = cfg.fan.speedGpio[0];
+    $("c_fan_g2").value = cfg.fan.speedGpio[1];
+    $("c_fan_g3").value = cfg.fan.speedGpio[2];
+    $("c_itag_enabled").value = String(cfg.itag.enabled);
+    $("c_itag_addr").value = cfg.itag.addr;
+    $("c_sensor_type").value = String(cfg.sensor.type);
+    $("c_sensor_gpio").value = cfg.sensor.gpio;
+    $("c_sensor_int").value = cfg.sensor.intervalSec;
+    buildRelayForm();
+    setMsg("");
+  } catch (e) { setMsg(e.message, true); }
+}
+
+function collectConfig() {
+  const out = {
+    hostname: $("c_hostname").value,
+    wifi: { ssid: $("c_ssid").value, pass: $("c_wifipass").value },
+    mqtt: {
+      enabled: $("c_mqtt_enabled").value === "true",
+      scheme: $("c_mqtt_scheme").value,
+      host: $("c_mqtt_host").value,
+      port: Number($("c_mqtt_port").value),
+      path: $("c_mqtt_path").value,
+      prefix: $("c_mqtt_prefix").value,
+      user: $("c_mqtt_user").value,
+      pass: $("c_mqtt_pass").value
+    },
+    relays: [],
+    fan: {
+      enabled: $("c_fan_enabled").value === "true",
+      name: $("c_fan_name").value,
+      maxSpeed: Number($("c_fan_max").value),
+      speedGpio: [Number($("c_fan_g1").value), Number($("c_fan_g2").value), Number($("c_fan_g3").value)]
+    },
+    itag: { enabled: $("c_itag_enabled").value === "true", addr: $("c_itag_addr").value },
+    sensor: { type: Number($("c_sensor_type").value), gpio: Number($("c_sensor_gpio").value), intervalSec: Number($("c_sensor_int").value) }
+  };
+  const pin = $("c_pin").value;
+  if (pin) out.pin = pin;
+  for (let i = 0; i < 8; i++) {
+    out.relays.push({
+      enabled: $("r" + i + "_en").value === "true",
+      name: $("r" + i + "_name").value,
+      gpio: Number($("r" + i + "_gpio").value),
+      button: Number($("r" + i + "_btn").value),
+      activeHigh: $("r" + i + "_act").value === "true"
+    });
+  }
+  return out;
+}
+
+async function saveConfig() {
+  try {
+    const r = await api("/api/config", { method: "POST", body: JSON.stringify(collectConfig()) });
+    const w = (r.warnings || []).join("; ");
+    setMsg("Saved. Restarting in " + (r.restartInMs / 1000) + " s." + (w ? " Warnings: " + w : ""));
+    setTimeout(() => { logout(); }, 2000);
+  } catch (e) { setMsg(e.message, true); }
+}
+
+async function factoryReset() {
+  if (!confirm("Erase all settings and reset PIN to 123456?")) return;
+  try { await api("/api/factory-reset", { method: "POST", body: "{}" }); setMsg("Resetting..."); logout(); }
+  catch (e) { setMsg(e.message, true); }
+}
+
+// ---- iTag helpers ----
+async function bleScan() {
+  $("bleResults").textContent = "Scanning 5 s...";
+  try {
+    await api("/api/ble/scan", { method: "POST", body: "{}" });
+    await new Promise(r => setTimeout(r, 6000));
+    const r = await api("/api/ble/results");
+    if (!r.devices.length) { $("bleResults").textContent = "No iTag found. Move closer and try again."; return; }
+    $("bleResults").innerHTML = "";
+    r.devices.forEach(d => {
+      const b = document.createElement("button");
+      b.textContent = d.name + " (" + d.addr + ", " + d.rssi + " dBm)";
+      b.onclick = () => { $("c_itag_addr").value = d.addr; $("c_itag_enabled").value = "true"; };
+      $("bleResults").appendChild(b);
+    });
+  } catch (e) { $("bleResults").textContent = e.message; }
+}
+
+async function bleRaw() {
+  try {
+    const r = await api("/api/ble/raw");
+    $("bleRawOut").textContent = r.events.length
+      ? r.events.map(e => e.ms + " ms  " + e.hex).join("\n")
+      : "No notifications yet. Press the iTag button, then try again.";
+  } catch (e) { $("bleRawOut").textContent = e.message; }
+}
+
+// ---- boot ----
+setInterval(refresh, 2000);
+if (token) { $("login").classList.add("hidden"); showApp(); }
+</script>
+</body>
+</html>

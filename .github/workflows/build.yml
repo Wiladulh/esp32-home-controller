@@ -1,0 +1,48 @@
+name: build-firmware
+
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install PlatformIO and esptool
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install --upgrade platformio esptool
+
+      - name: Build firmware
+        run: pio run -e esp32dev
+
+      - name: Build LittleFS (WebUI)
+        run: pio run -e esp32dev -t buildfs
+
+      - name: Merge into one flash image (4 MB)
+        run: |
+          B=.pio/build/esp32dev
+          python -m esptool --chip esp32 merge_bin \
+            -o full-flash-4MB.bin --flash_mode dio --flash_size 4MB \
+            0x1000  $B/bootloader.bin \
+            0x8000  $B/partitions.bin \
+            0x10000 $B/firmware.bin \
+            0x310000 $B/littlefs.bin
+          cp $B/firmware.bin firmware-app-only.bin
+
+      - name: Upload artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: esp32-home-controller
+          if-no-files-found: error
+          path: |
+            full-flash-4MB.bin
+            firmware-app-only.bin
