@@ -127,7 +127,7 @@ void bodyChunk(AsyncWebServerRequest* req, uint8_t* data, size_t len, size_t ind
       }
     });
     state->tooLarge = total > MAX_BODY;
-    Serial.printf("[web] body start, total=%u, heap=%u\\n", (unsigned)total, (unsigned)ESP.getFreeHeap());
+    Serial.printf("[web] body start, total=%u, heap=%u\n", (unsigned)total, (unsigned)ESP.getFreeHeap());
   }
 
   auto* state = requestBody(req);
