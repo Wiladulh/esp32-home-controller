@@ -92,6 +92,18 @@ RequestBody* requestBody(AsyncWebServerRequest* req) {
   return static_cast<RequestBody*>(req->_tempObject);
 }
 
+struct RequestBodyGuard {
+  AsyncWebServerRequest* request;
+  ~RequestBodyGuard() {
+    auto* body = requestBody(request);
+    if (body) {
+      delete body;
+      request->_tempObject = nullptr;
+      activeBodies.fetch_sub(1, std::memory_order_acq_rel);
+    }
+  }
+};
+
 void bodyChunk(AsyncWebServerRequest* req, uint8_t* data, size_t len, size_t index, size_t total) {
   if (index == 0) {
     if (activeBodies.fetch_add(1, std::memory_order_acq_rel) >= MAX_ACTIVE_BODIES) {
@@ -211,6 +223,7 @@ String configJson() {
 void registerRoutes() {
   // ---- Public: dashboard (works without PIN, so family can switch things when MQTT or iTag fails)
   server.on("/api/login", HTTP_POST, [](AsyncWebServerRequest* req) {
+    RequestBodyGuard bodyGuard{req};
     if (lockoutUntilMs && millis() < lockoutUntilMs) {
       sendError(req, 429, "locked out, try again later");
       return;
@@ -247,6 +260,7 @@ void registerRoutes() {
   });
 
   server.on("/api/relay", HTTP_POST, [](AsyncWebServerRequest* req) {
+    RequestBodyGuard bodyGuard{req};
     if (!bodyUsable(req)) return;
     JsonDocument in;
     if (deserializeJson(in, requestBody(req)->data)) return sendError(req, 400, "bad json");
@@ -257,6 +271,7 @@ void registerRoutes() {
   }, nullptr, bodyChunk);
 
   server.on("/api/fan", HTTP_POST, [](AsyncWebServerRequest* req) {
+    RequestBodyGuard bodyGuard{req};
     if (!bodyUsable(req)) return;
     JsonDocument in;
     if (deserializeJson(in, requestBody(req)->data)) return sendError(req, 400, "bad json");
@@ -273,6 +288,7 @@ void registerRoutes() {
   });
 
   server.on("/api/config", HTTP_POST, [](AsyncWebServerRequest* req) {
+    RequestBodyGuard bodyGuard{req};
     REQUIRE_AUTH(req);
     if (!bodyUsable(req)) return;
     AppConfig next = Config::get();
