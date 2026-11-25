@@ -85,6 +85,7 @@ void bodyChunk(AsyncWebServerRequest*, uint8_t* data, size_t len, size_t index, 
   if (index == 0) {
     bodyLen = 0;
     bodyTooLarge = total > MAX_BODY;
+    Serial.printf("[web] body start, total=%u, heap=%u\n", (unsigned)total, (unsigned)ESP.getFreeHeap());
   }
   if (bodyTooLarge) return;
   if (bodyLen + len > MAX_BODY) {
@@ -100,6 +101,8 @@ void bodyChunk(AsyncWebServerRequest*, uint8_t* data, size_t len, size_t index, 
 // send that type without a CORS preflight, and this device never answers preflights,
 // so other websites cannot drive the public relay and fan endpoints.
 bool bodyUsable(AsyncWebServerRequest* req) {
+  Serial.printf("[web] %s content-length=%u received=%u\n", req->url().c_str(),
+                (unsigned)req->contentLength(), (unsigned)bodyLen);
   if (!req->hasHeader("Content-Type") || !req->header("Content-Type").startsWith("application/json")) {
     sendError(req, 415, "content-type must be application/json");
     return false;
@@ -237,11 +240,21 @@ void registerRoutes() {
     if (!bodyUsable(req)) return;
     AppConfig next = Config::get();
     String err;
-    if (!Config::fromJson(bodyBuf, next, err)) return sendError(req, 400, err.c_str());
+    if (!Config::fromJson(bodyBuf, next, err)) {
+      Serial.printf("[web] config rejected by fromJson: %s\n", err.c_str());
+      return sendError(req, 400, err.c_str());
+    }
 
     std::vector<String> warnings;
-    if (!GpioMap::validate(next, err, warnings)) return sendError(req, 400, err.c_str());
-    if (!Config::save(next)) return sendError(req, 500, "save failed, config not changed");
+    if (!GpioMap::validate(next, err, warnings)) {
+      Serial.printf("[web] config rejected by GPIO check: %s\n", err.c_str());
+      return sendError(req, 400, err.c_str());
+    }
+    if (!Config::save(next)) {
+      Serial.println("[web] config save FAILED");
+      return sendError(req, 500, "save failed, config not changed");
+    }
+    Serial.printf("[web] config saved, ssid='%s', restart in 1.5 s\n", next.wifi.ssid);
 
     JsonDocument out;
     out["ok"] = true;

@@ -67,6 +67,8 @@ bool save(const AppConfig& cfg) {
   prefs.begin(NS, true);
   String stored = prefs.getString(KEY, "");
   prefs.end();
+  Serial.printf("[cfg] save: json=%u bytes, nvs wrote=%u, read back=%u, match=%d\n",
+                (unsigned)json.length(), (unsigned)n, (unsigned)stored.length(), (int)(stored == json));
   if (n == 0 || stored != json) {
     current = previous;
     return false;
