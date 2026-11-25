@@ -51,6 +51,7 @@ struct WifiCfg {
 struct AppConfig {
   char pin[7] = "123456";    // WebUI PIN (default per user request)
   char hostname[NAME_LEN] = "esp32-home";
+  char apPass[64] = "11111111";  // softAP password, 8..63 chars (default per user request)
   WifiCfg wifi;
   MqttCfg mqtt;
   RelayCfg relays[MAX_RELAYS];

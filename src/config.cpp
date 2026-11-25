@@ -57,12 +57,20 @@ void begin() {
 const AppConfig& get() { return current; }
 
 bool save(const AppConfig& cfg) {
-  String json = toJson(true);  // persist everything, including secrets
+  AppConfig previous = current;
+  current = cfg;                 // toJson() serializes `current`, so assign it first
+  String json = toJson(true);    // persist everything, including secrets
   prefs.begin(NS, false);
   size_t n = prefs.putString(KEY, json);
   prefs.end();
-  if (n == 0) return false;
-  current = cfg;
+  // read back and compare, so a silent NVS failure cannot look like a successful save
+  prefs.begin(NS, true);
+  String stored = prefs.getString(KEY, "");
+  prefs.end();
+  if (n == 0 || stored != json) {
+    current = previous;
+    return false;
+  }
   return true;
 }
 
@@ -76,6 +84,7 @@ void resetToDefaults() {
 String toJson(bool includeSecrets) {
   JsonDocument doc;
   doc["pin"] = includeSecrets ? current.pin : "";
+  doc["apPass"] = includeSecrets ? current.apPass : "";
   doc["hostname"] = current.hostname;
 
   JsonObject w = doc["wifi"].to<JsonObject>();
@@ -141,6 +150,14 @@ bool fromJson(const char* json, AppConfig& out, String& err) {
     }
   }
   if (doc["hostname"].is<const char*>()) copyStr(out.hostname, sizeof(out.hostname), doc["hostname"]);
+  if (doc["apPass"].is<const char*>()) {
+    const char* ap = doc["apPass"];
+    size_t n = strlen(ap);
+    if (n > 0) {  // empty keeps the stored password
+      if (n < 8 || n > 63) { err = "AP password must be 8 to 63 characters"; return false; }
+      copyStr(out.apPass, sizeof(out.apPass), ap);
+    }
+  }
 
   JsonObjectConst w = doc["wifi"];
   if (!w.isNull()) {

@@ -30,7 +30,6 @@ bool timeSynced = false;
 bool mqttStarted = false;
 bool safeMode = false;
 uint32_t resetHoldStart = 0;
-char apPassword[9] = "";
 
 void logChipInfo() {
   esp_chip_info_t info;
@@ -46,13 +45,14 @@ void logChipInfo() {
 }
 
 void startAp() {
-  // Random AP password, printed on Serial. Open AP is not allowed.
-  snprintf(apPassword, sizeof(apPassword), "%08lu", (unsigned long)(esp_random() % 100000000UL));
+  // Open AP is never allowed. Password comes from config (default 11111111).
+  const AppConfig& cfg = Config::get();
+  const char* pw = strlen(cfg.apPass) >= 8 ? cfg.apPass : "11111111";
   String ssid = String("ESP32-Setup-") + String((uint32_t)(ESP.getEfuseMac() & 0xFFFF), HEX);
   WiFi.mode(WIFI_AP);
-  WiFi.softAP(ssid.c_str(), apPassword);
+  WiFi.softAP(ssid.c_str(), pw);
   net = NetState::Ap;
-  Serial.printf("AP mode: SSID %s, password %s, open http://192.168.4.1\n", ssid.c_str(), apPassword);
+  Serial.printf("AP mode: SSID %s, password %s, open http://192.168.4.1\n", ssid.c_str(), pw);
 }
 
 void startWifi() {

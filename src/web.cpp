@@ -19,10 +19,11 @@ constexpr uint32_t SESSION_IDLE_MS = 5UL * 60UL * 1000UL;
 constexpr uint8_t MAX_FAILS = 5;
 constexpr uint32_t LOCKOUT_MS = 5UL * 60UL * 1000UL;
 constexpr size_t MAX_BODY = 4096;
+constexpr const char* DEFAULT_PIN = "123456";
 
 struct Session {
   String token;
-  uint32_t lastMs;
+  uint32_t lastMs = 0;
 };
 Session session;
 
@@ -40,6 +41,7 @@ String randomToken() {
   return String(out);
 }
 
+// Only the config (PIN-protected) endpoints check the session.
 bool sessionValid(AsyncWebServerRequest* req) {
   if (!req->hasHeader("Authorization")) return false;
   String h = req->header("Authorization");
@@ -66,7 +68,6 @@ void sendError(AsyncWebServerRequest* req, int code, const char* msg) {
   sendJson(req, code, out);
 }
 
-// Wraps an authenticated handler
 #define REQUIRE_AUTH(req)                                  \
   do {                                                     \
     if (!sessionValid(req)) {                              \
@@ -75,24 +76,48 @@ void sendError(AsyncWebServerRequest* req, int code, const char* msg) {
     }                                                      \
   } while (0)
 
-// Body accumulator for POST handlers (single in-flight request assumed for body parsing)
+// Body accumulator for POST handlers. One request body is parsed at a time.
 char bodyBuf[MAX_BODY + 1];
 size_t bodyLen = 0;
+bool bodyTooLarge = false;
 
-void bodyChunk(AsyncWebServerRequest* req, uint8_t* data, size_t len, size_t index, size_t total) {
-  if (total > MAX_BODY) return;
-  if (index == 0) bodyLen = 0;
-  if (bodyLen + len > MAX_BODY) return;
+void bodyChunk(AsyncWebServerRequest*, uint8_t* data, size_t len, size_t index, size_t total) {
+  if (index == 0) {
+    bodyLen = 0;
+    bodyTooLarge = total > MAX_BODY;
+  }
+  if (bodyTooLarge) return;
+  if (bodyLen + len > MAX_BODY) {
+    bodyTooLarge = true;
+    return;
+  }
   memcpy(bodyBuf + bodyLen, data, len);
   bodyLen += len;
   bodyBuf[bodyLen] = '\0';
-  (void)req;
+}
+
+// POST bodies must be application/json. A cross-site form or text/plain request cannot
+// send that type without a CORS preflight, and this device never answers preflights,
+// so other websites cannot drive the public relay and fan endpoints.
+bool bodyUsable(AsyncWebServerRequest* req) {
+  if (!req->hasHeader("Content-Type") || !req->header("Content-Type").startsWith("application/json")) {
+    sendError(req, 415, "content-type must be application/json");
+    return false;
+  }
+  if (bodyTooLarge) {
+    sendError(req, 413, "body too large");
+    return false;
+  }
+  if (req->contentLength() != bodyLen) {
+    sendError(req, 400, "incomplete body");
+    return false;
+  }
+  return true;
 }
 
 String statusJson() {
   const AppConfig& cfg = Config::get();
   JsonDocument d;
-  d["defaultPin"] = strcmp(cfg.pin, "123456") == 0;
   d["heapInternal"] = heap_caps_get_free_size(MALLOC_CAP_INTERNAL);
   d["mqtt"] = Mqtt::connected();
   d["itag"] = ITag::connected();
@@ -127,12 +152,30 @@ String statusJson() {
   return out;
 }
 
+// Config as shown in the Config tab: secrets blanked, plus board profile and PIN state.
+String configJson() {
+  JsonDocument d;
+  deserializeJson(d, Config::toJson(false).c_str());
+  d["defaultPin"] = strcmp(Config::get().pin, DEFAULT_PIN) == 0;
+  JsonObject b = d["board"].to<JsonObject>();
+  b["name"] = GpioMap::boardName();
+  JsonArray pins = b["pins"].to<JsonArray>();
+  for (size_t i = 0; i < GpioMap::allowedCount(); i++) {
+    pins.add((int)GpioMap::allowedPin(i));
+  }
+  String out;
+  serializeJson(d, out);
+  return out;
+}
+
 void registerRoutes() {
+  // ---- Public: dashboard (works without PIN, so family can switch things when MQTT or iTag fails)
   server.on("/api/login", HTTP_POST, [](AsyncWebServerRequest* req) {
     if (lockoutUntilMs && millis() < lockoutUntilMs) {
       sendError(req, 429, "locked out, try again later");
       return;
     }
+    if (!bodyUsable(req)) return;
     JsonDocument in;
     if (deserializeJson(in, bodyBuf) || !in["pin"].is<const char*>()) {
       sendError(req, 400, "bad request");
@@ -160,12 +203,11 @@ void registerRoutes() {
   }, nullptr, bodyChunk);
 
   server.on("/api/status", HTTP_GET, [](AsyncWebServerRequest* req) {
-    REQUIRE_AUTH(req);
     sendJson(req, 200, statusJson());
   });
 
   server.on("/api/relay", HTTP_POST, [](AsyncWebServerRequest* req) {
-    REQUIRE_AUTH(req);
+    if (!bodyUsable(req)) return;
     JsonDocument in;
     if (deserializeJson(in, bodyBuf)) return sendError(req, 400, "bad json");
     int idx = in["index"] | 0;
@@ -175,7 +217,7 @@ void registerRoutes() {
   }, nullptr, bodyChunk);
 
   server.on("/api/fan", HTTP_POST, [](AsyncWebServerRequest* req) {
-    REQUIRE_AUTH(req);
+    if (!bodyUsable(req)) return;
     JsonDocument in;
     if (deserializeJson(in, bodyBuf)) return sendError(req, 400, "bad json");
     int sp = in["speed"] | -1;
@@ -184,20 +226,22 @@ void registerRoutes() {
     sendJson(req, 200, "{\"ok\":true}");
   }, nullptr, bodyChunk);
 
+  // ---- PIN protected: config, factory reset, iTag tools
   server.on("/api/config", HTTP_GET, [](AsyncWebServerRequest* req) {
     REQUIRE_AUTH(req);
-    sendJson(req, 200, Config::toJson(false));
+    sendJson(req, 200, configJson());
   });
 
   server.on("/api/config", HTTP_POST, [](AsyncWebServerRequest* req) {
     REQUIRE_AUTH(req);
+    if (!bodyUsable(req)) return;
     AppConfig next = Config::get();
     String err;
     if (!Config::fromJson(bodyBuf, next, err)) return sendError(req, 400, err.c_str());
 
     std::vector<String> warnings;
     if (!GpioMap::validate(next, err, warnings)) return sendError(req, 400, err.c_str());
-    if (!Config::save(next)) return sendError(req, 500, "save failed");
+    if (!Config::save(next)) return sendError(req, 500, "save failed, config not changed");
 
     JsonDocument out;
     out["ok"] = true;
