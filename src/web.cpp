@@ -4,6 +4,8 @@
 #include <ArduinoJson.h>
 #include <esp_heap_caps.h>
 #include <esp_system.h>
+#include <atomic>
+#include <new>
 #include "config.h"
 #include "gpio_map.h"
 #include "relay.h"
@@ -76,42 +78,89 @@ void sendError(AsyncWebServerRequest* req, int code, const char* msg) {
     }                                                      \
   } while (0)
 
-// Body accumulator for POST handlers. One request body is parsed at a time.
-char bodyBuf[MAX_BODY + 1];
-size_t bodyLen = 0;
-bool bodyTooLarge = false;
+// Each request owns its body buffer. A small concurrency cap bounds heap use.
+struct RequestBody {
+  char data[MAX_BODY + 1]{};
+  size_t length = 0;
+  bool tooLarge = false;
+};
 
-void bodyChunk(AsyncWebServerRequest*, uint8_t* data, size_t len, size_t index, size_t total) {
+constexpr uint8_t MAX_ACTIVE_BODIES = 2;
+std::atomic<uint8_t> activeBodies{0};
+
+RequestBody* requestBody(AsyncWebServerRequest* req) {
+  return static_cast<RequestBody*>(req->_tempObject);
+}
+
+struct RequestBodyGuard {
+  AsyncWebServerRequest* request;
+  ~RequestBodyGuard() {
+    auto* body = requestBody(request);
+    if (body) {
+      delete body;
+      request->_tempObject = nullptr;
+      activeBodies.fetch_sub(1, std::memory_order_acq_rel);
+    }
+  }
+};
+
+void bodyChunk(AsyncWebServerRequest* req, uint8_t* data, size_t len, size_t index, size_t total) {
   if (index == 0) {
-    bodyLen = 0;
-    bodyTooLarge = total > MAX_BODY;
+    if (activeBodies.fetch_add(1, std::memory_order_acq_rel) >= MAX_ACTIVE_BODIES) {
+      activeBodies.fetch_sub(1, std::memory_order_acq_rel);
+      req->_tempObject = nullptr;
+      return;
+    }
+    auto* state = new (std::nothrow) RequestBody();
+    if (!state) {
+      activeBodies.fetch_sub(1, std::memory_order_acq_rel);
+      req->_tempObject = nullptr;
+      return;
+    }
+    req->_tempObject = state;
+    req->onDisconnect([req]() {
+      auto* body = requestBody(req);
+      if (body) {
+        delete body;
+        req->_tempObject = nullptr;
+        activeBodies.fetch_sub(1, std::memory_order_acq_rel);
+      }
+    });
+    state->tooLarge = total > MAX_BODY;
     Serial.printf("[web] body start, total=%u, heap=%u\n", (unsigned)total, (unsigned)ESP.getFreeHeap());
   }
-  if (bodyTooLarge) return;
-  if (bodyLen + len > MAX_BODY) {
-    bodyTooLarge = true;
+
+  auto* state = requestBody(req);
+  if (!state || state->tooLarge) return;
+  if (index != state->length || state->length + len > MAX_BODY) {
+    state->tooLarge = true;
     return;
   }
-  memcpy(bodyBuf + bodyLen, data, len);
-  bodyLen += len;
-  bodyBuf[bodyLen] = '\0';
+  memcpy(state->data + state->length, data, len);
+  state->length += len;
+  state->data[state->length] = '\0';
 }
 
 // POST bodies must be application/json. A cross-site form or text/plain request cannot
 // send that type without a CORS preflight, and this device never answers preflights,
 // so other websites cannot drive the public relay and fan endpoints.
 bool bodyUsable(AsyncWebServerRequest* req) {
+  const auto* body = requestBody(req);
   Serial.printf("[web] %s content-length=%u received=%u\n", req->url().c_str(),
-                (unsigned)req->contentLength(), (unsigned)bodyLen);
+                (unsigned)req->contentLength(), (unsigned)(body ? body->length : 0));
   if (!req->hasHeader("Content-Type") || !req->header("Content-Type").startsWith("application/json")) {
     sendError(req, 415, "content-type must be application/json");
     return false;
   }
-  if (bodyTooLarge) {
+  if (body && body->tooLarge) {
     sendError(req, 413, "body too large");
     return false;
   }
-  if (req->contentLength() != bodyLen) {
+  if (!body && req->contentLength() > 0) {
+    sendError(req, 503, "request body capacity unavailable");
+    return false;
+  }
+  if (req->contentLength() != (body ? body->length : 0)) {
     sendError(req, 400, "incomplete body");
     return false;
   }
@@ -174,13 +223,14 @@ String configJson() {
 void registerRoutes() {
   // ---- Public: dashboard (works without PIN, so family can switch things when MQTT or iTag fails)
   server.on("/api/login", HTTP_POST, [](AsyncWebServerRequest* req) {
+    RequestBodyGuard bodyGuard{req};
     if (lockoutUntilMs && millis() < lockoutUntilMs) {
       sendError(req, 429, "locked out, try again later");
       return;
     }
     if (!bodyUsable(req)) return;
     JsonDocument in;
-    if (deserializeJson(in, bodyBuf) || !in["pin"].is<const char*>()) {
+    if (deserializeJson(in, requestBody(req)->data) || !in["pin"].is<const char*>()) {
       sendError(req, 400, "bad request");
       return;
     }
@@ -210,9 +260,10 @@ void registerRoutes() {
   });
 
   server.on("/api/relay", HTTP_POST, [](AsyncWebServerRequest* req) {
+    RequestBodyGuard bodyGuard{req};
     if (!bodyUsable(req)) return;
     JsonDocument in;
-    if (deserializeJson(in, bodyBuf)) return sendError(req, 400, "bad json");
+    if (deserializeJson(in, requestBody(req)->data)) return sendError(req, 400, "bad json");
     int idx = in["index"] | 0;
     if (idx < 1 || idx > MAX_RELAYS || !in["on"].is<bool>()) return sendError(req, 400, "bad relay");
     if (!Relay::set(idx - 1, in["on"].as<bool>())) return sendError(req, 409, "relay not enabled");
@@ -220,9 +271,10 @@ void registerRoutes() {
   }, nullptr, bodyChunk);
 
   server.on("/api/fan", HTTP_POST, [](AsyncWebServerRequest* req) {
+    RequestBodyGuard bodyGuard{req};
     if (!bodyUsable(req)) return;
     JsonDocument in;
-    if (deserializeJson(in, bodyBuf)) return sendError(req, 400, "bad json");
+    if (deserializeJson(in, requestBody(req)->data)) return sendError(req, 400, "bad json");
     int sp = in["speed"] | -1;
     if (sp < 0 || sp > 3) return sendError(req, 400, "speed must be 0..3");
     if (!Fan::setSpeed(sp)) return sendError(req, 409, "fan not enabled or speed above max");
@@ -236,11 +288,12 @@ void registerRoutes() {
   });
 
   server.on("/api/config", HTTP_POST, [](AsyncWebServerRequest* req) {
+    RequestBodyGuard bodyGuard{req};
     REQUIRE_AUTH(req);
     if (!bodyUsable(req)) return;
     AppConfig next = Config::get();
     String err;
-    if (!Config::fromJson(bodyBuf, next, err)) {
+    if (!Config::fromJson(requestBody(req)->data, next, err)) {
       Serial.printf("[web] config rejected by fromJson: %s\n", err.c_str());
       return sendError(req, 400, err.c_str());
     }

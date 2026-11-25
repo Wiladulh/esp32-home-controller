@@ -37,7 +37,13 @@ void readRelay(JsonObjectConst o, RelayCfg& r) {
 namespace Config {
 
 void begin() {
-  prefs.begin(NS, true);
+  // A missing namespace is normal on first boot. Do not read through an
+  // unopened Preferences handle.
+  if (!prefs.begin(NS, true)) {
+    current = AppConfig{};
+    Serial.println("[cfg] NVS namespace unavailable; using defaults");
+    return;
+  }
   String json = prefs.getString(KEY, "");
   prefs.end();
   if (json.length() == 0) {
@@ -60,16 +66,25 @@ bool save(const AppConfig& cfg) {
   AppConfig previous = current;
   current = cfg;                 // toJson() serializes `current`, so assign it first
   String json = toJson(true);    // persist everything, including secrets
-  prefs.begin(NS, false);
+  if (!prefs.begin(NS, false)) {
+    Serial.println("[cfg] NVS write namespace open failed");
+    current = previous;
+    return false;
+  }
   size_t n = prefs.putString(KEY, json);
   prefs.end();
-  // read back and compare, so a silent NVS failure cannot look like a successful save
-  prefs.begin(NS, true);
-  String stored = prefs.getString(KEY, "");
-  prefs.end();
+
+  // Read back only after a successful write-open. A failed read-open is
+  // treated as a failed save rather than as an empty configuration.
+  String stored;
+  bool readOk = prefs.begin(NS, true);
+  if (readOk) {
+    stored = prefs.getString(KEY, "");
+    prefs.end();
+  }
   Serial.printf("[cfg] save: json=%u bytes, nvs wrote=%u, read back=%u, match=%d\n",
-                (unsigned)json.length(), (unsigned)n, (unsigned)stored.length(), (int)(stored == json));
-  if (n == 0 || stored != json) {
+                (unsigned)json.length(), (unsigned)n, (unsigned)stored.length(), (int)(readOk && stored == json));
+  if (n == 0 || !readOk || stored != json) {
     current = previous;
     return false;
   }
