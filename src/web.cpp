@@ -121,6 +121,37 @@ struct RequestBodyGuard {
   }
 };
 
+struct ConfigJob {
+  AsyncWebServerRequest* request = nullptr;
+  char body[MAX_BODY + 1]{};
+  bool pending = false;
+};
+
+ConfigJob configJob;
+SemaphoreHandle_t configJobMutex = nullptr;
+
+bool queueConfigSave(AsyncWebServerRequest* req, const RequestBody* body) {
+  if (!configJobMutex || !body) return false;
+  xSemaphoreTake(configJobMutex, portMAX_DELAY);
+  if (configJob.request || configJob.pending) {
+    xSemaphoreGive(configJobMutex);
+    return false;
+  }
+  req->onDisconnect([req]() {
+    xSemaphoreTake(configJobMutex, portMAX_DELAY);
+    if (configJob.request == req) {
+      configJob.request = nullptr;
+      configJob.pending = false;
+    }
+    xSemaphoreGive(configJobMutex);
+  });
+  memcpy(configJob.body, body->data, body->length + 1);
+  configJob.request = req;
+  configJob.pending = true;
+  xSemaphoreGive(configJobMutex);
+  return true;
+}
+
 void bodyChunk(AsyncWebServerRequest* req, uint8_t* data, size_t len, size_t index, size_t total) {
   if (!bodyMutex) return;
   if (index == 0) {
@@ -303,36 +334,12 @@ void registerRoutes() {
   });
 
   server.on("/api/config", HTTP_POST, [](AsyncWebServerRequest* req) {
-    RequestBodyGuard bodyGuard{req};
+    RequestBodyGuard bodyGuard{takeRequestBody(req)};
     REQUIRE_AUTH(req);
-    if (!bodyUsable(req)) return;
-    AppConfig next = Config::get();
-    String err;
-    if (!Config::fromJson(requestBody(req)->data, next, err)) {
-      Serial.printf("[web] config rejected by fromJson: %s\n", err.c_str());
-      return sendError(req, 400, err.c_str());
+    if (!bodyUsable(req, bodyGuard.body)) return;
+    if (!queueConfigSave(req, bodyGuard.body)) {
+      sendError(req, 503, "configuration save queue busy");
     }
-
-    std::vector<String> warnings;
-    if (!GpioMap::validate(next, err, warnings)) {
-      Serial.printf("[web] config rejected by GPIO check: %s\n", err.c_str());
-      return sendError(req, 400, err.c_str());
-    }
-    if (!Config::save(next)) {
-      Serial.println("[web] config save FAILED");
-      return sendError(req, 500, "save failed, config not changed");
-    }
-    Serial.printf("[web] config saved, ssid='%s', restart in 1.5 s\n", next.wifi.ssid);
-
-    JsonDocument out;
-    out["ok"] = true;
-    out["restartInMs"] = 1500;
-    JsonArray w = out["warnings"].to<JsonArray>();
-    for (auto& s : warnings) w.add(s);
-    String s;
-    serializeJson(out, s);
-    sendJson(req, 200, s);
-    Web::requestRestart(1500);
   }, nullptr, bodyChunk);
 
   server.on("/api/factory-reset", HTTP_POST, [](AsyncWebServerRequest* req) {
@@ -381,13 +388,51 @@ void registerRoutes() {
   server.serveStatic("/", LittleFS, "/").setDefaultFile("index.html");
   server.onNotFound([](AsyncWebServerRequest* req) { req->send(404, "text/plain", "not found"); });
 }
+void processConfigJob() {
+  if (!configJobMutex || xSemaphoreTake(configJobMutex, 0) != pdTRUE) return;
+  if (!configJob.pending || !configJob.request) {
+    xSemaphoreGive(configJobMutex);
+    return;
+  }
+
+  AsyncWebServerRequest* req = configJob.request;
+  configJob.pending = false;
+  AppConfig next = Config::get();
+  String err;
+  if (!Config::fromJson(configJob.body, next, err)) {
+    sendError(req, 400, err.c_str());
+  } else {
+    std::vector<String> warnings;
+    if (!GpioMap::validate(next, err, warnings)) {
+      sendError(req, 400, err.c_str());
+    } else if (!Config::save(next)) {
+      sendError(req, 500, "save failed, config not changed");
+    } else {
+      JsonDocument out;
+      out["ok"] = true;
+      out["restartInMs"] = 1500;
+      JsonArray w = out["warnings"].to<JsonArray>();
+      for (const auto& warning : warnings) w.add(warning);
+      String response;
+      serializeJson(out, response);
+      sendJson(req, 200, response);
+      Web::requestRestart(1500);
+    }
+  }
+
+  configJob.request = nullptr;
+  configJob.body[0] = '\0';
+  xSemaphoreGive(configJobMutex);
+}
+
 }  // namespace
 
 namespace Web {
 
 void begin() {
   bodyMutex = xSemaphoreCreateMutex();
-  if (!bodyMutex) {
+  configJobMutex = xSemaphoreCreateMutex();
+  if (!bodyMutex || !configJobMutex) {
     Serial.println("[web] failed to create request-body mutex; server not started");
     return;
   }
@@ -401,6 +446,7 @@ void requestRestart(uint32_t delayMs) {
 }
 
 void tick() {
+  processConfigJob();
   if (restartPending && (int32_t)(millis() - restartAt) >= 0) {
     restartPending = false;
     ESP.restart();
