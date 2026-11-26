@@ -308,7 +308,10 @@ void registerRoutes() {
     if (lockoutUntilMs && static_cast<int32_t>(now - lockoutUntilMs) < 0) {
       errorCode = 429;
       errorMessage = "locked out, try again later";
-    } else if (strcmp(in["pin"], cfg.pin) != 0) {
+    } else if (lockoutUntilMs) {
+      lockoutUntilMs = 0;
+    }
+    if (!errorCode && strcmp(in["pin"], cfg.pin) != 0) {
       ++failCount;
       if (failCount >= MAX_FAILS) {
         lockoutUntilMs = now + LOCKOUT_MS;
