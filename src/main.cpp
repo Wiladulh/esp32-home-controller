@@ -52,7 +52,7 @@ void startAp() {
   WiFi.mode(WIFI_AP);
   WiFi.softAP(ssid.c_str(), pw);
   net = NetState::Ap;
-  Serial.printf("AP mode: SSID %s, password %s, open http://192.168.4.1\n", ssid.c_str(), pw);
+  Serial.printf("AP mode: SSID %s, open http://192.168.4.1\n", ssid.c_str());
 }
 
 void startWifi() {
@@ -71,12 +71,12 @@ void startWifi() {
   Serial.printf("WiFi: connecting to %s\n", cfg.wifi.ssid);
 }
 
-void onRelayChange(uint8_t index, bool on) {
-  Mqtt::publishRelay(index, on);
+void onRelayChange(uint8_t index, bool) {
+  Mqtt::publishRelay(index, Relay::get(index));
 }
 
-void onFanChange(uint8_t speed) {
-  Mqtt::publishFan(speed);
+void onFanChange(uint8_t) {
+  Mqtt::publishFan(Fan::getSpeed());
 }
 
 void onSensor(float t, float h, bool hasH) {
@@ -94,7 +94,11 @@ void checkFactoryReset() {
     if (resetHoldStart == 0) resetHoldStart = millis();
     if (millis() - resetHoldStart >= FACTORY_RESET_HOLD_MS) {
       Serial.println("Factory reset: clearing config.");
-      Config::resetToDefaults();
+      if (!Config::resetToDefaults()) {
+        Serial.println("Factory reset failed; configuration was not changed.");
+        resetHoldStart = 0;
+        return;
+      }
       delay(200);
       ESP.restart();
     }
@@ -175,8 +179,11 @@ void setup() {
   }
 
   startWifi();
-  Web::begin();
-  Serial.println("WebUI ready.");
+  if (!Web::begin()) {
+    Serial.println("WebUI unavailable: startup synchronization failed.");
+  } else {
+    Serial.println("WebUI ready.");
+  }
 }
 
 void loop() {

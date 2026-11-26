@@ -20,9 +20,8 @@ pio run                 # firmware
 pio run -t buildfs      # LittleFS berisi data/
 ```
 
-Framework: Arduino-ESP32 3.3.x lewat pioarduino (`platformio.ini` dipin ke rilis 55.03.39).
-Partisi tanpa OTA: aplikasi 3 MB, LittleFS 960 KB (`partitions.csv`, label `spiffs`).
-TLS: bundle root CA publik Mozilla di dalam firmware (`sdkconfig.defaults`), tanpa file CA dari user.
+Framework: Arduino-ESP32 3.3.x lewat pioarduino (`platformio.ini` dipin ke rilis 55.03.312).
+Partisi tanpa OTA: aplikasi 3 MB, LittleFS 832 KiB (`partitions.csv`, label `spiffs`), dan core dump 128 KiB. Pengaturan core dump, full default root CA bundle, serta MQTT WebSocket/WSS diterapkan melalui `custom_sdkconfig` khusus platform pioarduino (`sdkconfig.custom`). Build CI harus membuktikan konfigurasi tersebut berhasil diterapkan.
 Tidak ada OTA. Update firmware dilakukan dengan flash ulang dari PC.
 
 ## Flash dari PC
@@ -116,9 +115,9 @@ Di aplikasi Android (mqtt), aktifkan TLS/SSL dan WebSocket.
 
 - Endpoint dashboard (`/api/status`, `/api/relay`, `/api/fan`) tanpa PIN, sesuai kebutuhan rumah.
 - Endpoint config (`/api/config`, `/api/factory-reset`, `/api/ble/*`) memakai PIN dan session token.
-- PIN 6 digit. Session token berakhir setelah 5 menit tidak aktif. Token disimpan di RAM, tidak di browser.
-- 5 PIN salah berturut-turut = lockout 5 menit (di RAM, reset saat reboot).
-- Semua POST berbody JSON wajib `Content-Type: application/json`. Form lintas situs tidak bisa mengirim tipe ini tanpa preflight CORS, dan firmware tidak mengizinkan CORS.
+- PIN 6 digit. Session token berakhir setelah 5 menit tidak aktif. Token server disimpan di RAM ESP32; salinannya hanya berada di variabel JavaScript selama halaman terbuka, tidak disimpan ke `localStorage` atau `sessionStorage`.
+- 5 PIN salah berturut-turut = lockout 5 menit (di RAM, reset saat reboot; reboot dapat menghapus lockout).
+- Semua POST berbody JSON wajib `Content-Type: application/json`. Browser lintas situs dibatasi oleh preflight CORS yang tidak diizinkan; ini bukan autentikasi dan tidak melindungi perangkat dari klien lain pada jaringan lokal.
 - Password AP default 11111111. Ganti jika perangkat dipasang di rumah yang ramai.
 - Setiap perangkat sebaiknya memakai PIN unik saat dipasang di rumah lain.
 
@@ -141,9 +140,9 @@ data/index.html   WebUI (Inggris): Dashboard + Config
 
 Build ini belum diuji di hardware. Hal berikut perlu diuji saat pertama dipakai:
 
-1. WSS ke Cloudflare dengan bundle root CA Mozilla.
+1. WSS ke Cloudflare dengan full default root CA bundle Mozilla yang diaktifkan melalui `sdkconfig.custom`.
 2. Field `esp_mqtt_client_config_t` dan `network.reconnect_timeout_ms` di IDF 5.5.
 3. API NimBLE 2.5.1 (`scan->start(ms, false)`, `onScanEnd`, `subscribe`).
 4. Perilaku notifikasi iTag: karakteristik FFE1, dan apakah setiap notifikasi = satu klik. Gunakan Learn mode.
 5. Ukuran RAM internal saat WiFi + BLE + TLS + WebSocket aktif bersamaan.
-6. Vector hasil scan BLE dan log learn mode diakses dari dua task tanpa mutex. Risiko kecil, perlu diperbaiki bila muncul crash.
+6. Sinkronisasi vector hasil scan BLE dan log learn mode menggunakan FreeRTOS mutex; perilaku notifikasi iTag tetap perlu divalidasi dengan raw bytes karena belum terbukti setiap notifikasi mewakili satu klik.

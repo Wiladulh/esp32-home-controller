@@ -3,13 +3,14 @@
 #include <esp_crt_bundle.h>
 #include <string.h>
 #include <strings.h>
+#include <atomic>
 #include "config.h"
 #include "fan.h"
 #include "relay.h"
 
 namespace {
 esp_mqtt_client_handle_t client = nullptr;
-bool isConnected = false;
+std::atomic<bool> isConnected{false};
 String prefix;
 
 String topic(const char* suffix) { return prefix + suffix; }
@@ -52,9 +53,10 @@ void handleCommand(const char* t, int tlen, const char* d, int dlen) {
   if (!sTopic.startsWith(prefix)) return;
   String rest = sTopic.substring(prefix.length());
 
-  if (rest.startsWith("relay")) {
-    int idx = rest.substring(5).toInt();
-    if (idx < 1 || idx > MAX_RELAYS) return;
+  if (rest.length() == 6 && rest.startsWith("relay") &&
+      rest[5] >= '1' && rest[5] <= '8') {
+    const int idx = rest[5] - '0';
+    if (idx > MAX_RELAYS) return;
     int v = parseOnOff(d, dlen);
     if (v < 0) return;
     Relay::set(idx - 1, v == 1);
@@ -72,7 +74,7 @@ void eventHandler(void*, esp_event_base_t, int32_t id, void* data) {
     case MQTT_EVENT_CONNECTED: {
       isConnected = true;
       String st = topic("status");
-      esp_mqtt_client_publish(client, st.c_str(), "online", 0, 1, 1);
+      esp_mqtt_client_enqueue(client, st.c_str(), "online", 0, 1, 1, true);
       subscribeAll();
       publishAllStates();
       break;
@@ -141,20 +143,20 @@ void stop() {
   isConnected = false;
 }
 
-bool connected() { return isConnected; }
+bool connected() { return isConnected.load(std::memory_order_acquire); }
 
 void publishRelay(uint8_t index, bool on) {
   if (!client || !isConnected) return;
   String t = topic(("relay" + String(index + 1) + "/state").c_str());
   const char* v = on ? "on" : "off";
-  esp_mqtt_client_publish(client, t.c_str(), v, 0, 1, 1);
+  esp_mqtt_client_enqueue(client, t.c_str(), v, 0, 1, 1, true);
 }
 
 void publishFan(uint8_t speed) {
   if (!client || !isConnected) return;
   String t = topic("fan1/state");
   char v[2] = {(char)('0' + speed), '\0'};
-  esp_mqtt_client_publish(client, t.c_str(), v, 1, 1, 1);
+  esp_mqtt_client_enqueue(client, t.c_str(), v, 1, 1, 1, true);
 }
 
 void publishSensor(float tempC, float humidity, bool hasHumidity) {
@@ -162,11 +164,11 @@ void publishSensor(float tempC, float humidity, bool hasHumidity) {
   char buf[16];
   String t = topic("sensor/temp");
   snprintf(buf, sizeof(buf), "%.1f", tempC);
-  esp_mqtt_client_publish(client, t.c_str(), buf, 0, 0, 1);
+  esp_mqtt_client_enqueue(client, t.c_str(), buf, 0, 0, 1, true);
   if (hasHumidity) {
     t = topic("sensor/humidity");
     snprintf(buf, sizeof(buf), "%.1f", humidity);
-    esp_mqtt_client_publish(client, t.c_str(), buf, 0, 0, 1);
+    esp_mqtt_client_enqueue(client, t.c_str(), buf, 0, 0, 1, true);
   }
 }
 

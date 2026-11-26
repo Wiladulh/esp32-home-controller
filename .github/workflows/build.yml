@@ -21,11 +21,45 @@ jobs:
           python -m pip install --upgrade pip
           python -m pip install --upgrade platformio esptool
 
+      - name: Pin pioarduino Core for custom_sdkconfig
+        run: |
+          printf 'pioarduino==6.2.0\n' > "$RUNNER_TEMP/uv-constraints.txt"
+          echo "UV_CONSTRAINT=$RUNNER_TEMP/uv-constraints.txt" >> "$GITHUB_ENV"
+
       - name: Build firmware
         run: pio run -e esp32dev
 
+      - name: Verify generated ESP-IDF configuration
+        run: |
+          test -f sdkconfig.esp32dev
+          grep -qx 'CONFIG_ESP_COREDUMP_ENABLE_TO_FLASH=y' sdkconfig.esp32dev
+          grep -qx 'CONFIG_ESP_COREDUMP_STACK_SIZE=1792' sdkconfig.esp32dev
+          grep -qx 'CONFIG_MBEDTLS_CERTIFICATE_BUNDLE=y' sdkconfig.esp32dev
+          grep -qx 'CONFIG_MBEDTLS_CERTIFICATE_BUNDLE_DEFAULT_FULL=y' sdkconfig.esp32dev
+          grep -qx 'CONFIG_MQTT_TRANSPORT_SSL=y' sdkconfig.esp32dev
+          grep -qx 'CONFIG_MQTT_TRANSPORT_WEBSOCKET=y' sdkconfig.esp32dev
+          grep -qx 'CONFIG_MQTT_TRANSPORT_WEBSOCKET_SECURE=y' sdkconfig.esp32dev
+
       - name: Build LittleFS (WebUI)
         run: pio run -e esp32dev -t buildfs
+
+      - name: Check inline WebUI JavaScript syntax
+        run: |
+          python - <<'PY'
+          import re
+          from pathlib import Path
+
+          html = Path("data/index.html").read_text(encoding="utf-8")
+          scripts = [
+              match.group(1)
+              for match in re.finditer(r"<script\b[^>]*>([\s\S]*?)</script\s*>", html, re.IGNORECASE)
+              if match.group(1).strip()
+          ]
+          if not scripts:
+              raise SystemExit("No inline JavaScript found in data/index.html")
+          Path("/tmp/webui-inline-check.mjs").write_text("\n".join(scripts), encoding="utf-8")
+          PY
+          node --check /tmp/webui-inline-check.mjs
 
       - name: Merge into one flash image (4 MB)
         run: |

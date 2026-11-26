@@ -1,3 +1,7 @@
 .pio/
 .vscode/
 .DS_Store
+
+# pioarduino-generated SDKConfig files
+sdkconfig.*
+!sdkconfig.custom

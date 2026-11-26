@@ -1,4 +1,6 @@
 #include "relay.h"
+#include <freertos/FreeRTOS.h>
+#include <freertos/semphr.h>
 #include "config.h"
 
 namespace {
@@ -17,6 +19,7 @@ struct State {
 
 State st[MAX_RELAYS];
 Relay::ChangeCb changeCb;
+SemaphoreHandle_t stateMutex = nullptr;
 
 void drive(State& s, bool on) {
   s.on = on;
@@ -29,6 +32,9 @@ void drive(State& s, bool on) {
 namespace Relay {
 
 void begin() {
+  stateMutex = xSemaphoreCreateMutex();
+  if (!stateMutex) return;
+  xSemaphoreTake(stateMutex, portMAX_DELAY);
   const AppConfig& cfg = Config::get();
   for (uint8_t i = 0; i < MAX_RELAYS; i++) {
     State& s = st[i];
@@ -39,7 +45,6 @@ void begin() {
     s.button = r.enabled ? r.buttonGpio : -1;
     s.activeHigh = r.activeHigh;
     if (s.gpio >= 0) {
-      // drive OFF before switching to output to avoid a glitch
       digitalWrite(s.gpio, s.activeHigh ? LOW : HIGH);
       pinMode(s.gpio, OUTPUT);
       digitalWrite(s.gpio, s.activeHigh ? LOW : HIGH);
@@ -51,50 +56,82 @@ void begin() {
       s.stable = s.lastRaw;
     }
   }
+  xSemaphoreGive(stateMutex);
 }
 
 void tick() {
-  uint32_t now = millis();
+  if (!stateMutex) return;
+  const uint32_t now = millis();
   for (uint8_t i = 0; i < MAX_RELAYS; i++) {
-    State& s = st[i];
-    if (!s.enabled || s.button < 0) continue;
-    bool raw = digitalRead(s.button);
-    if (raw != s.lastRaw) {
-      s.lastRaw = raw;
-      s.lastChangeMs = now;
-    }
-    if (raw != s.stable && (now - s.lastChangeMs) >= DEBOUNCE_MS) {
-      s.stable = raw;
-      if (s.stable == LOW) {  // pressed (active low to GND)
-        set(i, !s.on);
+    ChangeCb cb;
+    bool changed = false;
+    bool newState = false;
+    xSemaphoreTake(stateMutex, portMAX_DELAY);
+    State& state = st[i];
+    if (state.enabled && state.button >= 0) {
+      const bool raw = digitalRead(state.button);
+      if (raw != state.lastRaw) {
+        state.lastRaw = raw;
+        state.lastChangeMs = now;
+      }
+      if (raw != state.stable && now - state.lastChangeMs >= DEBOUNCE_MS) {
+        state.stable = raw;
+        if (state.stable == LOW) {
+          newState = !state.on;
+          drive(state, newState);
+          cb = changeCb;
+          changed = true;
+        }
       }
     }
+    xSemaphoreGive(stateMutex);
+    if (changed && cb) cb(i, newState);
   }
 }
 
 bool set(uint8_t index, bool on) {
-  if (index >= MAX_RELAYS || !st[index].enabled) return false;
-  if (st[index].on == on) return true;
-  drive(st[index], on);
-  if (changeCb) changeCb(index, on);
-  return true;
+  if (index >= MAX_RELAYS || !stateMutex) return false;
+  ChangeCb cb;
+  bool changed = false;
+  xSemaphoreTake(stateMutex, portMAX_DELAY);
+  if (st[index].enabled) {
+    changed = st[index].on != on;
+    if (changed) {
+      drive(st[index], on);
+      cb = changeCb;
+    }
+  }
+  const bool enabled = st[index].enabled;
+  xSemaphoreGive(stateMutex);
+  if (changed && cb) cb(index, on);
+  return enabled;
 }
 
 bool get(uint8_t index) {
-  if (index >= MAX_RELAYS) return false;
-  return st[index].on;
+  if (index >= MAX_RELAYS || !stateMutex) return false;
+  xSemaphoreTake(stateMutex, portMAX_DELAY);
+  const bool value = st[index].on;
+  xSemaphoreGive(stateMutex);
+  return value;
 }
 
 bool isEnabled(uint8_t index) {
-  return index < MAX_RELAYS && st[index].enabled;
+  if (index >= MAX_RELAYS || !stateMutex) return false;
+  xSemaphoreTake(stateMutex, portMAX_DELAY);
+  const bool value = st[index].enabled;
+  xSemaphoreGive(stateMutex);
+  return value;
 }
 
-void onChange(ChangeCb cb) { changeCb = cb; }
+void onChange(ChangeCb cb) {
+  if (!stateMutex) return;
+  xSemaphoreTake(stateMutex, portMAX_DELAY);
+  changeCb = cb;
+  xSemaphoreGive(stateMutex);
+}
 
 void allOff() {
-  for (uint8_t i = 0; i < MAX_RELAYS; i++) {
-    if (st[i].enabled) set(i, false);
-  }
+  for (uint8_t i = 0; i < MAX_RELAYS; i++) set(i, false);
 }
 
 }  // namespace Relay
