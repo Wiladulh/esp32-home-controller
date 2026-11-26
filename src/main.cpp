@@ -71,12 +71,12 @@ void startWifi() {
   Serial.printf("WiFi: connecting to %s\n", cfg.wifi.ssid);
 }
 
-void onRelayChange(uint8_t index, bool on) {
-  Mqtt::publishRelay(index, on);
+void onRelayChange(uint8_t index, bool) {
+  Mqtt::publishRelay(index, Relay::get(index));
 }
 
-void onFanChange(uint8_t speed) {
-  Mqtt::publishFan(speed);
+void onFanChange(uint8_t) {
+  Mqtt::publishFan(Fan::getSpeed());
 }
 
 void onSensor(float t, float h, bool hasH) {
