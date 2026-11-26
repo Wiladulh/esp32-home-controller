@@ -21,8 +21,8 @@ pio run -t buildfs      # LittleFS berisi data/
 ```
 
 Framework: Arduino-ESP32 3.3.x lewat pioarduino (`platformio.ini` dipin ke rilis 55.03.39).
-Partisi tanpa OTA: aplikasi 3 MB, LittleFS 960 KB (`partitions.csv`, label `spiffs`).
-TLS: bundle root CA publik Mozilla di dalam firmware (`sdkconfig.defaults`), tanpa file CA dari user.
+Partisi tanpa OTA: aplikasi 3 MB, LittleFS 832 KiB (`partitions.csv`, label `spiffs`). Area `coredump` 128 KiB saat ini hanya dicadangkan; konfigurasi core dump belum diaktifkan pada build Arduino SCons ini.
+TLS: firmware memakai API certificate bundle ESP-IDF untuk koneksi TLS. Keberhasilan validasi sertifikat WSS tetap harus diuji pada perangkat.
 Tidak ada OTA. Update firmware dilakukan dengan flash ulang dari PC.
 
 ## Flash dari PC
@@ -117,8 +117,8 @@ Di aplikasi Android (mqtt), aktifkan TLS/SSL dan WebSocket.
 - Endpoint dashboard (`/api/status`, `/api/relay`, `/api/fan`) tanpa PIN, sesuai kebutuhan rumah.
 - Endpoint config (`/api/config`, `/api/factory-reset`, `/api/ble/*`) memakai PIN dan session token.
 - PIN 6 digit. Session token berakhir setelah 5 menit tidak aktif. Token disimpan di RAM, tidak di browser.
-- 5 PIN salah berturut-turut = lockout 5 menit (di RAM, reset saat reboot).
-- Semua POST berbody JSON wajib `Content-Type: application/json`. Form lintas situs tidak bisa mengirim tipe ini tanpa preflight CORS, dan firmware tidak mengizinkan CORS.
+- 5 PIN salah berturut-turut = lockout 5 menit (di RAM, reset saat reboot; reboot dapat menghapus lockout).
+- Semua POST berbody JSON wajib `Content-Type: application/json`. Browser lintas situs dibatasi oleh preflight CORS yang tidak diizinkan; ini bukan autentikasi dan tidak melindungi perangkat dari klien lain pada jaringan lokal.
 - Password AP default 11111111. Ganti jika perangkat dipasang di rumah yang ramai.
 - Setiap perangkat sebaiknya memakai PIN unik saat dipasang di rumah lain.
 
@@ -146,4 +146,4 @@ Build ini belum diuji di hardware. Hal berikut perlu diuji saat pertama dipakai:
 3. API NimBLE 2.5.1 (`scan->start(ms, false)`, `onScanEnd`, `subscribe`).
 4. Perilaku notifikasi iTag: karakteristik FFE1, dan apakah setiap notifikasi = satu klik. Gunakan Learn mode.
 5. Ukuran RAM internal saat WiFi + BLE + TLS + WebSocket aktif bersamaan.
-6. Vector hasil scan BLE dan log learn mode diakses dari dua task tanpa mutex. Risiko kecil, perlu diperbaiki bila muncul crash.
+6. Sinkronisasi vector hasil scan BLE dan log learn mode menggunakan FreeRTOS mutex; perilaku notifikasi iTag tetap perlu divalidasi dengan raw bytes karena belum terbukti setiap notifikasi mewakili satu klik.
