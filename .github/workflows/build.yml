@@ -24,6 +24,17 @@ jobs:
       - name: Build firmware
         run: pio run -e esp32dev
 
+      - name: Verify generated ESP-IDF configuration
+        run: |
+          test -f sdkconfig.esp32dev
+          grep -qx 'CONFIG_ESP_COREDUMP_ENABLE_TO_FLASH=y' sdkconfig.esp32dev
+          grep -qx 'CONFIG_ESP_COREDUMP_STACK_SIZE=1792' sdkconfig.esp32dev
+          grep -qx 'CONFIG_MBEDTLS_CERTIFICATE_BUNDLE=y' sdkconfig.esp32dev
+          grep -qx 'CONFIG_MBEDTLS_CERTIFICATE_BUNDLE_DEFAULT_FULL=y' sdkconfig.esp32dev
+          grep -qx 'CONFIG_MQTT_TRANSPORT_SSL=y' sdkconfig.esp32dev
+          grep -qx 'CONFIG_MQTT_TRANSPORT_WEBSOCKET=y' sdkconfig.esp32dev
+          grep -qx 'CONFIG_MQTT_TRANSPORT_WEBSOCKET_SECURE=y' sdkconfig.esp32dev
+
       - name: Build LittleFS (WebUI)
         run: pio run -e esp32dev -t buildfs
 
