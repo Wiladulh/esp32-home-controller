@@ -179,8 +179,11 @@ void setup() {
   }
 
   startWifi();
-  Web::begin();
-  Serial.println("WebUI ready.");
+  if (!Web::begin()) {
+    Serial.println("WebUI unavailable: startup synchronization failed.");
+  } else {
+    Serial.println("WebUI ready.");
+  }
 }
 
 void loop() {
