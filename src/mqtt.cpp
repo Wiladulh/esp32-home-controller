@@ -53,9 +53,10 @@ void handleCommand(const char* t, int tlen, const char* d, int dlen) {
   if (!sTopic.startsWith(prefix)) return;
   String rest = sTopic.substring(prefix.length());
 
-  if (rest.startsWith("relay")) {
-    int idx = rest.substring(5).toInt();
-    if (idx < 1 || idx > MAX_RELAYS) return;
+  if (rest.length() == 6 && rest.startsWith("relay") &&
+      rest[5] >= '1' && rest[5] <= '8') {
+    const int idx = rest[5] - '0';
+    if (idx > MAX_RELAYS) return;
     int v = parseOnOff(d, dlen);
     if (v < 0) return;
     Relay::set(idx - 1, v == 1);
