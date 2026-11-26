@@ -35,8 +35,8 @@ SemaphoreHandle_t authMutex = nullptr;
 uint8_t failCount = 0;
 uint32_t lockoutUntilMs = 0;
 
-uint32_t restartAt = 0;
-bool restartPending = false;
+std::atomic<uint32_t> restartAt{0};
+std::atomic<bool> restartPending{false};
 
 String randomToken() {
   char out[33];
@@ -488,15 +488,18 @@ void begin() {
 }
 
 void requestRestart(uint32_t delayMs) {
-  restartAt = millis() + delayMs;
-  restartPending = true;
+  restartAt.store(millis() + delayMs, std::memory_order_relaxed);
+  restartPending.store(true, std::memory_order_release);
 }
 
 void tick() {
   processConfigJob();
-  if (restartPending && (int32_t)(millis() - restartAt) >= 0) {
-    restartPending = false;
-    ESP.restart();
+  if (restartPending.load(std::memory_order_acquire) &&
+      static_cast<int32_t>(millis() - restartAt.load(std::memory_order_relaxed)) >= 0) {
+    bool expected = true;
+    if (restartPending.compare_exchange_strong(expected, false, std::memory_order_acq_rel)) {
+      ESP.restart();
+    }
   }
 }
 
