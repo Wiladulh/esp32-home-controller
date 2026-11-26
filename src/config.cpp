@@ -253,7 +253,7 @@ bool fromJson(const char* json, AppConfig& out, String& err) {
       !checkObject(doc["sensor"], "sensor", err) ||
       !checkObject(doc["itag"], "itag", err)) return false;
 
-  if (!checkString(doc["wifi"]["ssid"], sizeof(out.wifi.ssid), "wifi.ssid", err) ||
+  if (!checkString(doc["wifi"]["ssid"], 33, "wifi.ssid", err) ||
       !checkString(doc["wifi"]["pass"], sizeof(out.wifi.pass), "wifi.pass", err) ||
       !checkString(doc["mqtt"]["scheme"], sizeof(out.mqtt.scheme), "mqtt.scheme", err) ||
       !checkString(doc["mqtt"]["host"], sizeof(out.mqtt.host), "mqtt.host", err) ||
