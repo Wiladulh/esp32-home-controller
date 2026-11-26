@@ -1069,10 +1069,18 @@ pre {
     saveMsg.className = "msg show";
     saveMsg.textContent = "Saving...";
     try {
-      const r = await api("/api/config", { body: data });
-      const warn = (r.warnings || []).join(" ");
+      await api("/api/config", { body: data });
+      let state = "queued";
+      for (let attempt = 0; attempt < 80; attempt++) {
+        await new Promise((resolve) => setTimeout(resolve, 250));
+        const result = await api("/api/config/status");
+        state = result.state;
+        if (state === "failed") throw new Error(result.error || "Configuration save failed.");
+        if (state === "succeeded") break;
+      }
+      if (state !== "succeeded") throw new Error("Configuration save timed out. Check the device before retrying.");
       saveMsg.className = "msg ok show";
-      saveMsg.textContent = "Saved. The device is restarting, reconnect in about 10 seconds." + (warn ? " " + warn : "");
+      saveMsg.textContent = "Saved. The device is restarting; reconnect in about 10 seconds.";
       token = null;
       $("#cfgArea").querySelectorAll("input, select, button").forEach((el) => { el.disabled = true; });
     } catch (err) {
