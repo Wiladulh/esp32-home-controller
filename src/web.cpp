@@ -35,8 +35,9 @@ SemaphoreHandle_t authMutex = nullptr;
 uint8_t failCount = 0;
 uint32_t lockoutUntilMs = 0;
 
-std::atomic<uint32_t> restartAt{0};
-std::atomic<bool> restartPending{false};
+uint32_t restartAt = 0;
+bool restartPending = false;
+SemaphoreHandle_t restartMutex = nullptr;
 
 String randomToken() {
   char out[33];
@@ -504,7 +505,8 @@ bool begin() {
   bodyMutex = xSemaphoreCreateMutex();
   configJobMutex = xSemaphoreCreateMutex();
   authMutex = xSemaphoreCreateMutex();
-  if (!bodyMutex || !configJobMutex || !authMutex) {
+  restartMutex = xSemaphoreCreateMutex();
+  if (!bodyMutex || !configJobMutex || !authMutex || !restartMutex) {
     Serial.println("[web] failed to create required mutexes; server not started");
     return false;
   }
@@ -514,19 +516,25 @@ bool begin() {
 }
 
 void requestRestart(uint32_t delayMs) {
-  restartAt.store(millis() + delayMs, std::memory_order_relaxed);
-  restartPending.store(true, std::memory_order_release);
+  if (!restartMutex) return;
+  xSemaphoreTake(restartMutex, portMAX_DELAY);
+  restartAt = millis() + delayMs;
+  restartPending = true;
+  xSemaphoreGive(restartMutex);
 }
 
 void tick() {
   processConfigJob();
-  if (restartPending.load(std::memory_order_acquire) &&
-      static_cast<int32_t>(millis() - restartAt.load(std::memory_order_relaxed)) >= 0) {
-    bool expected = true;
-    if (restartPending.compare_exchange_strong(expected, false, std::memory_order_acq_rel)) {
-      ESP.restart();
+  bool shouldRestart = false;
+  if (restartMutex) {
+    xSemaphoreTake(restartMutex, portMAX_DELAY);
+    if (restartPending && static_cast<int32_t>(millis() - restartAt) >= 0) {
+      restartPending = false;
+      shouldRestart = true;
     }
+    xSemaphoreGive(restartMutex);
   }
+  if (shouldRestart) ESP.restart();
 }
 
 }  // namespace Web
