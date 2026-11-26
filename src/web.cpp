@@ -121,33 +121,28 @@ struct RequestBodyGuard {
   }
 };
 
+enum class ConfigJobState : uint8_t { Idle, Queued, Processing, Succeeded, Failed };
+
 struct ConfigJob {
-  AsyncWebServerRequest* request = nullptr;
   char body[MAX_BODY + 1]{};
-  bool pending = false;
+  char error[128]{};
+  ConfigJobState state = ConfigJobState::Idle;
 };
 
 ConfigJob configJob;
 SemaphoreHandle_t configJobMutex = nullptr;
 
-bool queueConfigSave(AsyncWebServerRequest* req, const RequestBody* body) {
+bool queueConfigSave(const RequestBody* body) {
   if (!configJobMutex || !body) return false;
   xSemaphoreTake(configJobMutex, portMAX_DELAY);
-  if (configJob.request || configJob.pending) {
+  if (configJob.state == ConfigJobState::Queued || configJob.state == ConfigJobState::Processing ||
+      configJob.state == ConfigJobState::Succeeded) {
     xSemaphoreGive(configJobMutex);
     return false;
   }
-  req->onDisconnect([req]() {
-    xSemaphoreTake(configJobMutex, portMAX_DELAY);
-    if (configJob.request == req) {
-      configJob.request = nullptr;
-      configJob.pending = false;
-    }
-    xSemaphoreGive(configJobMutex);
-  });
   memcpy(configJob.body, body->data, body->length + 1);
-  configJob.request = req;
-  configJob.pending = true;
+  configJob.error[0] = '\\0';
+  configJob.state = ConfigJobState::Queued;
   xSemaphoreGive(configJobMutex);
   return true;
 }
@@ -337,10 +332,33 @@ void registerRoutes() {
     RequestBodyGuard bodyGuard{takeRequestBody(req)};
     REQUIRE_AUTH(req);
     if (!bodyUsable(req, bodyGuard.body)) return;
-    if (!queueConfigSave(req, bodyGuard.body)) {
+    if (!queueConfigSave(bodyGuard.body)) {
       sendError(req, 503, "configuration save queue busy");
+      return;
     }
+    sendJson(req, 202, "{\\"queued\\":true}");
   }, nullptr, bodyChunk);
+
+  server.on("/api/config/status", HTTP_GET, [](AsyncWebServerRequest* req) {
+    REQUIRE_AUTH(req);
+    if (!configJobMutex) return sendError(req, 503, "configuration worker unavailable");
+    xSemaphoreTake(configJobMutex, portMAX_DELAY);
+    const char* state = "idle";
+    switch (configJob.state) {
+      case ConfigJobState::Queued: state = "queued"; break;
+      case ConfigJobState::Processing: state = "processing"; break;
+      case ConfigJobState::Succeeded: state = "succeeded"; break;
+      case ConfigJobState::Failed: state = "failed"; break;
+      default: break;
+    }
+    JsonDocument out;
+    out["state"] = state;
+    if (configJob.state == ConfigJobState::Failed) out["error"] = configJob.error;
+    String response;
+    serializeJson(out, response);
+    xSemaphoreGive(configJobMutex);
+    sendJson(req, 200, response);
+  });
 
   server.on("/api/factory-reset", HTTP_POST, [](AsyncWebServerRequest* req) {
     REQUIRE_AUTH(req);
@@ -390,39 +408,40 @@ void registerRoutes() {
 }
 void processConfigJob() {
   if (!configJobMutex || xSemaphoreTake(configJobMutex, 0) != pdTRUE) return;
-  if (!configJob.pending || !configJob.request) {
+  if (configJob.state != ConfigJobState::Queued) {
     xSemaphoreGive(configJobMutex);
     return;
   }
+  char body[MAX_BODY + 1];
+  memcpy(body, configJob.body, sizeof(body));
+  configJob.state = ConfigJobState::Processing;
+  xSemaphoreGive(configJobMutex);
 
-  AsyncWebServerRequest* req = configJob.request;
-  configJob.pending = false;
   AppConfig next = Config::get();
   String err;
-  if (!Config::fromJson(configJob.body, next, err)) {
-    sendError(req, 400, err.c_str());
+  bool saved = false;
+  if (!Config::fromJson(body, next, err)) {
+    saved = false;
   } else {
     std::vector<String> warnings;
     if (!GpioMap::validate(next, err, warnings)) {
-      sendError(req, 400, err.c_str());
-    } else if (!Config::save(next)) {
-      sendError(req, 500, "save failed, config not changed");
+      saved = false;
     } else {
-      JsonDocument out;
-      out["ok"] = true;
-      out["restartInMs"] = 1500;
-      JsonArray w = out["warnings"].to<JsonArray>();
-      for (const auto& warning : warnings) w.add(warning);
-      String response;
-      serializeJson(out, response);
-      sendJson(req, 200, response);
-      Web::requestRestart(1500);
+      saved = Config::save(next);
+      if (!saved) err = "save failed, config not changed";
     }
   }
 
-  configJob.request = nullptr;
-  configJob.body[0] = '\0';
+  xSemaphoreTake(configJobMutex, portMAX_DELAY);
+  if (saved) {
+    configJob.state = ConfigJobState::Succeeded;
+    configJob.error[0] = '\\0';
+  } else {
+    configJob.state = ConfigJobState::Failed;
+    strlcpy(configJob.error, err.c_str(), sizeof(configJob.error));
+  }
   xSemaphoreGive(configJobMutex);
+  if (saved) Web::requestRestart(3000);
 }
 
 }  // namespace
