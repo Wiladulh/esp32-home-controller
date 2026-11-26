@@ -36,12 +36,12 @@ jobs:
           html = Path("data/index.html").read_text(encoding="utf-8")
           scripts = [
               match.group(1)
-              for match in re.finditer(r"<script\\b[^>]*>([\\s\\S]*?)</script\\s*>", html, re.IGNORECASE)
+              for match in re.finditer(r"<script\b[^>]*>([\s\S]*?)</script\s*>", html, re.IGNORECASE)
               if match.group(1).strip()
           ]
           if not scripts:
               raise SystemExit("No inline JavaScript found in data/index.html")
-          Path("/tmp/webui-inline-check.mjs").write_text("\\n".join(scripts), encoding="utf-8")
+          Path("/tmp/webui-inline-check.mjs").write_text("\n".join(scripts), encoding="utf-8")
           PY
           node --check /tmp/webui-inline-check.mjs
 
