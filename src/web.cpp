@@ -457,8 +457,6 @@ void processConfigJob() {
     xSemaphoreGive(configJobMutex);
     return;
   }
-  char body[MAX_BODY + 1];
-  memcpy(body, configJob.body, sizeof(body));
   const ConfigJobType type = configJob.type;
   configJob.state = ConfigJobState::Processing;
   xSemaphoreGive(configJobMutex);
@@ -470,7 +468,7 @@ void processConfigJob() {
     if (!saved) err = "factory reset failed";
   } else {
     AppConfig next = Config::get();
-    if (!Config::fromJson(body, next, err)) {
+    if (!Config::fromJson(configJob.body, next, err)) {
       saved = false;
     } else {
       std::vector<String> warnings;
