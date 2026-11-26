@@ -308,25 +308,25 @@ void registerRoutes() {
     if (lockoutUntilMs && static_cast<int32_t>(now - lockoutUntilMs) < 0) {
       errorCode = 429;
       errorMessage = "locked out, try again later";
-    } else if (lockoutUntilMs) {
-      lockoutUntilMs = 0;
-    }
-    if (!errorCode && strcmp(in["pin"], cfg.pin) != 0) {
-      ++failCount;
-      if (failCount >= MAX_FAILS) {
-        lockoutUntilMs = now + LOCKOUT_MS;
-        failCount = 0;
-        errorCode = 429;
-        errorMessage = "too many attempts, locked for 5 minutes";
-      } else {
-        errorCode = 401;
-        errorMessage = "wrong pin";
-      }
     } else {
-      failCount = 0;
-      session.token = randomToken();
-      session.lastMs = now;
-      token = session.token;
+      lockoutUntilMs = 0;
+      if (strcmp(in["pin"], cfg.pin) != 0) {
+        ++failCount;
+        if (failCount >= MAX_FAILS) {
+          lockoutUntilMs = now + LOCKOUT_MS;
+          failCount = 0;
+          errorCode = 429;
+          errorMessage = "too many attempts, locked for 5 minutes";
+        } else {
+          errorCode = 401;
+          errorMessage = "wrong pin";
+        }
+      } else {
+        failCount = 0;
+        session.token = randomToken();
+        session.lastMs = now;
+        token = session.token;
+      }
     }
     xSemaphoreGive(authMutex);
 
