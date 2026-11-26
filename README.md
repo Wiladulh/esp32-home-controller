@@ -21,8 +21,7 @@ pio run -t buildfs      # LittleFS berisi data/
 ```
 
 Framework: Arduino-ESP32 3.3.x lewat pioarduino (`platformio.ini` dipin ke rilis 55.03.39).
-Partisi tanpa OTA: aplikasi 3 MB, LittleFS 832 KiB (`partitions.csv`, label `spiffs`). Area `coredump` 128 KiB saat ini hanya dicadangkan; konfigurasi core dump belum diaktifkan pada build Arduino SCons ini.
-TLS: firmware memakai API certificate bundle ESP-IDF untuk koneksi TLS. Keberhasilan validasi sertifikat WSS tetap harus diuji pada perangkat.
+Partisi tanpa OTA: aplikasi 3 MB, LittleFS 832 KiB (`partitions.csv`, label `spiffs`), dan core dump 128 KiB. Pengaturan core dump, full default root CA bundle, serta MQTT WebSocket/WSS diterapkan melalui `custom_sdkconfig` khusus platform pioarduino (`sdkconfig.custom`). Build CI harus membuktikan konfigurasi tersebut berhasil diterapkan.
 Tidak ada OTA. Update firmware dilakukan dengan flash ulang dari PC.
 
 ## Flash dari PC
@@ -141,7 +140,7 @@ data/index.html   WebUI (Inggris): Dashboard + Config
 
 Build ini belum diuji di hardware. Hal berikut perlu diuji saat pertama dipakai:
 
-1. WSS ke Cloudflare dengan bundle root CA Mozilla.
+1. WSS ke Cloudflare dengan full default root CA bundle Mozilla yang diaktifkan melalui `sdkconfig.custom`.
 2. Field `esp_mqtt_client_config_t` dan `network.reconnect_timeout_ms` di IDF 5.5.
 3. API NimBLE 2.5.1 (`scan->start(ms, false)`, `onScanEnd`, `subscribe`).
 4. Perilaku notifikasi iTag: karakteristik FFE1, dan apakah setiap notifikasi = satu klik. Gunakan Learn mode.
