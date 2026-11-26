@@ -343,10 +343,10 @@ void registerRoutes() {
   });
 
   server.on("/api/relay", HTTP_POST, [](AsyncWebServerRequest* req) {
-    RequestBodyGuard bodyGuard{req};
-    if (!bodyUsable(req)) return;
+    RequestBodyGuard bodyGuard{takeRequestBody(req)};
+    if (!bodyUsable(req, bodyGuard.body)) return;
     JsonDocument in;
-    if (deserializeJson(in, requestBody(req)->data)) return sendError(req, 400, "bad json");
+    if (deserializeJson(in, bodyGuard.body->data)) return sendError(req, 400, "bad json");
     int idx = in["index"] | 0;
     if (idx < 1 || idx > MAX_RELAYS || !in["on"].is<bool>()) return sendError(req, 400, "bad relay");
     if (!Relay::set(idx - 1, in["on"].as<bool>())) return sendError(req, 409, "relay not enabled");
@@ -354,10 +354,10 @@ void registerRoutes() {
   }, nullptr, bodyChunk);
 
   server.on("/api/fan", HTTP_POST, [](AsyncWebServerRequest* req) {
-    RequestBodyGuard bodyGuard{req};
-    if (!bodyUsable(req)) return;
+    RequestBodyGuard bodyGuard{takeRequestBody(req)};
+    if (!bodyUsable(req, bodyGuard.body)) return;
     JsonDocument in;
-    if (deserializeJson(in, requestBody(req)->data)) return sendError(req, 400, "bad json");
+    if (deserializeJson(in, bodyGuard.body->data)) return sendError(req, 400, "bad json");
     int sp = in["speed"] | -1;
     if (sp < 0 || sp > 3) return sendError(req, 400, "speed must be 0..3");
     if (!Fan::setSpeed(sp)) return sendError(req, 409, "fan not enabled or speed above max");
