@@ -119,7 +119,7 @@ bool ensureInit() {
 
 bool startConnect() {
   const AppConfig cfg = Config::get();
-  if (!cfg.itagEnabled || cfg.itagAddr[0] == '\\0') return false;
+  if (!cfg.itagEnabled || cfg.itagAddr[0] == '\0') return false;
   if (!ensureInit()) return false;
 
   if (client == nullptr) {
@@ -128,7 +128,11 @@ bool startConnect() {
     client->setClientCallbacks(&clientCallbacks, false);
     client->setConnectTimeout(10000);
   }
-  if (client->isConnected() || connecting.load(std::memory_order_acquire)) return true;
+  if (client->isConnected()) {
+    connectReady.store(true, std::memory_order_release);
+    return true;
+  }
+  if (connecting.load(std::memory_order_acquire)) return true;
 
   NimBLEAddress addr(cfg.itagAddr, BLE_ADDR_PUBLIC);
   connecting.store(true, std::memory_order_release);
@@ -192,8 +196,13 @@ std::vector<RawEvent> recentRaw() {
 bool connected() { return connectedState.load(std::memory_order_acquire); }
 
 void stop() {
-  if (client && client->isConnected()) client->disconnect();
+  if (client) {
+    if (connecting.exchange(false, std::memory_order_acq_rel)) client->cancelConnect();
+    if (client->isConnected()) client->disconnect();
+  }
   connectedState.store(false, std::memory_order_release);
+  connectReady.store(false, std::memory_order_release);
+  connectFailed.store(false, std::memory_order_release);
 }
 
 void tick() {
@@ -215,9 +224,15 @@ void tick() {
   if (startRequested) {
     if (ensureInit()) {
       NimBLEScan* scan = NimBLEDevice::getScan();
-      scan->setScanCallbacks(&scanCb, false);
-      scan->setActiveScan(true);
-      if (!scan->start(scanDuration, false)) {
+      if (scan) {
+        scan->setScanCallbacks(&scanCb, false);
+        scan->setActiveScan(true);
+        if (!scan->start(scanDuration, false)) {
+          xSemaphoreTake(dataMutex, portMAX_DELAY);
+          isScanning = false;
+          xSemaphoreGive(dataMutex);
+        }
+      } else {
         xSemaphoreTake(dataMutex, portMAX_DELAY);
         isScanning = false;
         xSemaphoreGive(dataMutex);
