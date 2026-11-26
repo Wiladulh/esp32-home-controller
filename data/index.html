@@ -1154,9 +1154,18 @@ pre {
     if (!window.confirm("Erase all settings and restart with the default config?")) return;
     try {
       await api("/api/factory-reset", { method: "POST" });
-      flash("Factory reset started. The device is restarting.");
+      let state = "queued";
+      for (let attempt = 0; attempt < 80; attempt++) {
+        await new Promise((resolve) => setTimeout(resolve, 250));
+        const result = await api("/api/config/status");
+        state = result.state;
+        if (state === "failed") throw new Error(result.error || "Factory reset failed.");
+        if (state === "succeeded") break;
+      }
+      if (state !== "succeeded") throw new Error("Factory reset timed out. Check the device before retrying.");
+      flash("Factory reset completed. The device is restarting.");
       token = null;
-      showLogin("Reset done. Reconnect in about 10 seconds, then use PIN 123456.");
+      showLogin("Reset completed. Reconnect in about 10 seconds, then use PIN 123456.");
     } catch (err) {
       flash(err.message);
     }
