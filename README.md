@@ -93,10 +93,10 @@ Broker default: `wss://mqtt.giebux.my.id:443/`. Prefix topik diatur di Config. I
 
 | Topik | Arah | Payload |
 |---|---|---|
-| `{prefix}/r1` … `{prefix}/r8` | perintah relay | `on` / `off` (juga `1` / `0`) |
-| `{prefix}/f1` … `{prefix}/f3` | perintah fan | `on` memilih speed tersebut; `off` menghentikan fan hanya jika speed itu sedang aktif |
-| `{prefix}/r1/state` … `{prefix}/r8/state` | status relay (retained) | `on` / `off` |
-| `{prefix}/f1/state` … `{prefix}/f3/state` | status speed fan (retained) | `on` / `off` |
+| `{prefix}/relay1` … `{prefix}/relay8` | perintah dan status relay | `on` / `off` (juga `1` / `0`); status tidak retained |
+| `{prefix}/fan1` … `{prefix}/fan3` | perintah dan status fan | `on` memilih speed tersebut; `off` menghentikan fan hanya jika speed itu sedang aktif; status tidak retained |
+
+
 | `{prefix}/sensor/temp` | sensor (retained) | angka desimal, °C |
 | `{prefix}/sensor/humidity` | sensor (retained) | angka desimal, % (DHT22 saja) |
 | `{prefix}/status` | LWT (retained) | `online` / `offline` |
