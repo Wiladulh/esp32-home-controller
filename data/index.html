@@ -1076,11 +1076,14 @@ pre {
         const result = await api("/api/config/status");
         state = result.state;
         if (state === "failed") throw new Error(result.error || "Configuration save failed.");
-        if (state === "succeeded") break;
+        if (state === "succeeded") {
+          if (result.verified !== true) throw new Error("Save completed without NVS verification.");
+          break;
+        }
       }
       if (state !== "succeeded") throw new Error("Configuration save timed out. Check the device before retrying.");
       saveMsg.className = "msg ok show";
-      saveMsg.textContent = "Saved. The device is restarting; reconnect in about 10 seconds.";
+      saveMsg.textContent = "Saved and verified in NVS. The device is restarting; reconnect in about 10 seconds.";
       token = null;
       $("#cfgArea").querySelectorAll("input, select, button").forEach((el) => { el.disabled = true; });
     } catch (err) {
@@ -1160,7 +1163,10 @@ pre {
         const result = await api("/api/config/status");
         state = result.state;
         if (state === "failed") throw new Error(result.error || "Factory reset failed.");
-        if (state === "succeeded") break;
+        if (state === "succeeded") {
+          if (result.verified !== true) throw new Error("Factory reset completed without NVS verification.");
+          break;
+        }
       }
       if (state !== "succeeded") throw new Error("Factory reset timed out. Check the device before retrying.");
       flash("Factory reset completed. The device is restarting.");
