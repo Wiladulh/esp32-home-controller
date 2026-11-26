@@ -10,6 +10,7 @@ namespace {
 Preferences prefs;
 AppConfig current;
 SemaphoreHandle_t configMutex = nullptr;
+portMUX_TYPE configMux = portMUX_INITIALIZER_UNLOCKED;
 constexpr const char* NS = "cfg";
 constexpr const char* KEY = "json";
 
@@ -107,9 +108,16 @@ void begin() {
 }
 
 AppConfig get() {
-  if (configMutex) xSemaphoreTake(configMutex, portMAX_DELAY);
-  AppConfig snapshot = current;
-  if (configMutex) xSemaphoreGive(configMutex);
+  AppConfig snapshot;
+  if (configMutex) {
+    xSemaphoreTake(configMutex, portMAX_DELAY);
+    snapshot = current;
+    xSemaphoreGive(configMutex);
+  } else {
+    portENTER_CRITICAL(&configMux);
+    snapshot = current;
+    portEXIT_CRITICAL(&configMux);
+  }
   return snapshot;
 }
 
@@ -133,9 +141,15 @@ bool save(const AppConfig& cfg) {
   Serial.printf("[cfg] save: json=%u bytes, nvs wrote=%u, read back=%u, match=%d\n",
                 (unsigned)json.length(), (unsigned)n, (unsigned)stored.length(), (int)(readOk && stored == json));
   if (n == 0 || !readOk || stored != json) return false;
-  if (configMutex) xSemaphoreTake(configMutex, portMAX_DELAY);
-  current = cfg;
-  if (configMutex) xSemaphoreGive(configMutex);
+  if (configMutex) {
+    xSemaphoreTake(configMutex, portMAX_DELAY);
+    current = cfg;
+    xSemaphoreGive(configMutex);
+  } else {
+    portENTER_CRITICAL(&configMux);
+    current = cfg;
+    portEXIT_CRITICAL(&configMux);
+  }
   return true;
 }
 
@@ -151,9 +165,15 @@ bool resetToDefaults() {
     Serial.println("[cfg] NVS reset failed; current config retained");
     return false;
   }
-  if (configMutex) xSemaphoreTake(configMutex, portMAX_DELAY);
-  current = AppConfig{};
-  if (configMutex) xSemaphoreGive(configMutex);
+  if (configMutex) {
+    xSemaphoreTake(configMutex, portMAX_DELAY);
+    current = AppConfig{};
+    xSemaphoreGive(configMutex);
+  } else {
+    portENTER_CRITICAL(&configMux);
+    current = AppConfig{};
+    portEXIT_CRITICAL(&configMux);
+  }
   return true;
 }
 
@@ -205,10 +225,8 @@ String toJsonUnlocked(const AppConfig& cfg, bool includeSecrets) {
 }
 
 String toJson(bool includeSecrets) {
-  if (configMutex) xSemaphoreTake(configMutex, portMAX_DELAY);
-  String out = toJsonUnlocked(current, includeSecrets);
-  if (configMutex) xSemaphoreGive(configMutex);
-  return out;
+  const AppConfig snapshot = get();
+  return toJsonUnlocked(snapshot, includeSecrets);
 }
 
 // Merges JSON into `out`. Missing keys keep their current value.
