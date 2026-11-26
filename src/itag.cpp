@@ -14,6 +14,9 @@ constexpr size_t RAW_KEEP = 20;
 portMUX_TYPE mux = portMUX_INITIALIZER_UNLOCKED;
 SemaphoreHandle_t dataMutex = nullptr;
 std::atomic<bool> connectedState{false};
+std::atomic<bool> connecting{false};
+std::atomic<bool> connectReady{false};
+std::atomic<bool> connectFailed{false};
 volatile uint8_t pendingPresses = 0;
 volatile uint32_t lastPressMs = 0;
 
@@ -89,10 +92,20 @@ ScanCb scanCb;
 
 class ClientCallbacks : public NimBLEClientCallbacks {
   void onConnect(NimBLEClient*) override {
-    connectedState.store(true, std::memory_order_release);
+    connecting.store(false, std::memory_order_release);
+    connectFailed.store(false, std::memory_order_release);
+    connectReady.store(true, std::memory_order_release);
+  }
+  void onConnectFail(NimBLEClient*, int) override {
+    connectedState.store(false, std::memory_order_release);
+    connecting.store(false, std::memory_order_release);
+    connectReady.store(false, std::memory_order_release);
+    connectFailed.store(true, std::memory_order_release);
   }
   void onDisconnect(NimBLEClient*, int) override {
     connectedState.store(false, std::memory_order_release);
+    connecting.store(false, std::memory_order_release);
+    connectReady.store(false, std::memory_order_release);
   }
 };
 ClientCallbacks clientCallbacks;
@@ -104,31 +117,35 @@ bool ensureInit() {
   return true;
 }
 
-bool tryConnect() {
-  const AppConfig& cfg = Config::get();
-  if (!cfg.itagEnabled || cfg.itagAddr[0] == '\0') return false;
+bool startConnect() {
+  const AppConfig cfg = Config::get();
+  if (!cfg.itagEnabled || cfg.itagAddr[0] == '\\0') return false;
   if (!ensureInit()) return false;
 
   if (client == nullptr) {
     client = NimBLEDevice::createClient();
     if (!client) return false;
     client->setClientCallbacks(&clientCallbacks, false);
+    client->setConnectTimeout(10000);
   }
-  if (client->isConnected()) return true;
+  if (client->isConnected() || connecting.load(std::memory_order_acquire)) return true;
 
   NimBLEAddress addr(cfg.itagAddr, BLE_ADDR_PUBLIC);
-  if (!client->connect(addr)) {
-    connectedState.store(false, std::memory_order_release);
+  connecting.store(true, std::memory_order_release);
+  if (!client->connect(addr, true, true, true)) {
+    connecting.store(false, std::memory_order_release);
     return false;
   }
-  connectedState.store(true, std::memory_order_release);
-
-  NimBLERemoteService* svc = client->getService(NimBLEUUID("FFE0"));
-  if (!svc) { client->disconnect(); return false; }
-  notifyChr = svc->getCharacteristic(NimBLEUUID("FFE1"));
-  if (!notifyChr || !notifyChr->canNotify()) { client->disconnect(); return false; }
-  if (!notifyChr->subscribe(true, onNotify)) { client->disconnect(); return false; }
   return true;
+}
+
+bool subscribeTag() {
+  if (!client || !client->isConnected()) return false;
+  NimBLERemoteService* svc = client->getService(NimBLEUUID("FFE0"));
+  if (!svc) return false;
+  notifyChr = svc->getCharacteristic(NimBLEUUID("FFE1"));
+  if (!notifyChr || !notifyChr->canNotify()) return false;
+  return notifyChr->subscribe(true, onNotify);
 }
 }  // namespace
 
@@ -212,11 +229,27 @@ void tick() {
     }
   }
 
-  // reconnect with backoff 2s -> 60s
-  if (Config::get().itagEnabled && !connected() && !scanning() && static_cast<int32_t>(now - nextAttemptMs) >= 0) {
-    if (tryConnect()) {
+  // Finish connection work in the loop after NimBLE reports its async result.
+  if (connectFailed.exchange(false, std::memory_order_acq_rel)) {
+    nextAttemptMs = now + reconnectDelay;
+    reconnectDelay = min(reconnectDelay * 2, RECONNECT_MAX_MS);
+  }
+  if (connectReady.exchange(false, std::memory_order_acq_rel)) {
+    if (subscribeTag()) {
+      connectedState.store(true, std::memory_order_release);
       reconnectDelay = RECONNECT_MIN_MS;
     } else {
+      if (client && client->isConnected()) client->disconnect();
+      nextAttemptMs = now + reconnectDelay;
+      reconnectDelay = min(reconnectDelay * 2, RECONNECT_MAX_MS);
+    }
+  }
+
+  // Start a non-blocking connection attempt; a failed attempt is retried with backoff.
+  if (Config::get().itagEnabled && !connected() &&
+      !connecting.load(std::memory_order_acquire) && !scanning() &&
+      static_cast<int32_t>(now - nextAttemptMs) >= 0) {
+    if (!startConnect()) {
       nextAttemptMs = now + reconnectDelay;
       reconnectDelay = min(reconnectDelay * 2, RECONNECT_MAX_MS);
     }
