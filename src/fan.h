@@ -9,6 +9,7 @@ using ChangeCb = std::function<void(uint8_t speed)>;
 void begin();                       // configure relay outputs from config, all OFF
 void tick();                        // completes pending speed transitions (non-blocking)
 bool setSpeed(uint8_t speed);       // 0 = OFF, 1..maxSpeed
+bool setSpeedIfCurrent(uint8_t expectedSpeed, uint8_t targetSpeed);
 uint8_t getSpeed();
 uint8_t maxSpeed();
 bool isEnabled();
