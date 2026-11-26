@@ -116,7 +116,7 @@ Di aplikasi Android (mqtt), aktifkan TLS/SSL dan WebSocket.
 
 - Endpoint dashboard (`/api/status`, `/api/relay`, `/api/fan`) tanpa PIN, sesuai kebutuhan rumah.
 - Endpoint config (`/api/config`, `/api/factory-reset`, `/api/ble/*`) memakai PIN dan session token.
-- PIN 6 digit. Session token berakhir setelah 5 menit tidak aktif. Token disimpan di RAM, tidak di browser.
+- PIN 6 digit. Session token berakhir setelah 5 menit tidak aktif. Token server disimpan di RAM ESP32; salinannya hanya berada di variabel JavaScript selama halaman terbuka, tidak disimpan ke `localStorage` atau `sessionStorage`.
 - 5 PIN salah berturut-turut = lockout 5 menit (di RAM, reset saat reboot; reboot dapat menghapus lockout).
 - Semua POST berbody JSON wajib `Content-Type: application/json`. Browser lintas situs dibatasi oleh preflight CORS yang tidak diizinkan; ini bukan autentikasi dan tidak melindungi perangkat dari klien lain pada jaringan lokal.
 - Password AP default 11111111. Ganti jika perangkat dipasang di rumah yang ramai.
