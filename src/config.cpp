@@ -273,21 +273,6 @@ bool fromJson(const char* json, AppConfig& out, String& err) {
       !checkBool(doc["itag"]["enabled"], "itag.enabled", err) ||
       !checkString(doc["itag"]["addr"], sizeof(out.itagAddr), "itag.addr", err)) return false;
 
-  if (doc["hostname"].is<const char*>() && doc["hostname"].as<const char*>()[0] == '\0') {
-    err = "hostname must not be empty";
-    return false;
-  }
-  if (doc["mqtt"]["enabled"].as<bool>() && doc["mqtt"]["host"].is<const char*>() &&
-      doc["mqtt"]["host"].as<const char*>()[0] == '\0') {
-    err = "mqtt.host is required when MQTT is enabled";
-    return false;
-  }
-  if (doc["itag"]["enabled"].as<bool>() &&
-      (!doc["itag"]["addr"].is<const char*>() || doc["itag"]["addr"].as<const char*>()[0] == '\0')) {
-    err = "itag.addr is required when iTag is enabled";
-    return false;
-  }
-
   if (!doc["wifi"]["pass"].isNull() && doc["wifi"]["pass"].is<const char*>() &&
       strlen(doc["wifi"]["pass"].as<const char*>()) > 0 &&
       strlen(doc["wifi"]["pass"].as<const char*>()) < 8) {
