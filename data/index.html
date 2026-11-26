@@ -643,6 +643,7 @@ pre {
   let board = [];
   let relaySig = "";
   let fanSig = "";
+  let statusRefreshing = false;
 
   // ---------- theme toggle ----------
   const root = document.documentElement;
@@ -811,12 +812,16 @@ pre {
   }
 
   async function refreshStatus() {
+    if (statusRefreshing) return;
+    statusRefreshing = true;
     try {
       const s = await api("/api/status");
       $("#linkErr").classList.remove("show");
       renderStatus(s);
     } catch (e) {
       $("#linkErr").classList.add("show");
+    } finally {
+      statusRefreshing = false;
     }
   }
 
