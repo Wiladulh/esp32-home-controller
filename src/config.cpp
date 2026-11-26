@@ -82,7 +82,6 @@ bool save(const AppConfig& cfg) {
   if (configMutex) xSemaphoreGive(configMutex);
   if (!prefs.begin(NS, false)) {
     Serial.println("[cfg] NVS write namespace open failed");
-    current = previous;
     return false;
   }
   size_t n = prefs.putString(KEY, json);
@@ -117,7 +116,9 @@ bool resetToDefaults() {
     Serial.println("[cfg] NVS reset failed; current config retained");
     return false;
   }
+  if (configMutex) xSemaphoreTake(configMutex, portMAX_DELAY);
   current = AppConfig{};
+  if (configMutex) xSemaphoreGive(configMutex);
   return true;
 }
 
