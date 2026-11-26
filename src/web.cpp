@@ -126,10 +126,12 @@ struct RequestBodyGuard {
 };
 
 enum class ConfigJobState : uint8_t { Idle, Queued, Processing, Succeeded, Failed };
+enum class ConfigJobType : uint8_t { Save, FactoryReset };
 
 struct ConfigJob {
   char body[MAX_BODY + 1]{};
   char error[128]{};
+  ConfigJobType type = ConfigJobType::Save;
   ConfigJobState state = ConfigJobState::Idle;
 };
 
@@ -145,6 +147,23 @@ bool queueConfigSave(const RequestBody* body) {
     return false;
   }
   memcpy(configJob.body, body->data, body->length + 1);
+  configJob.type = ConfigJobType::Save;
+  configJob.error[0] = '\0';
+  configJob.state = ConfigJobState::Queued;
+  xSemaphoreGive(configJobMutex);
+  return true;
+}
+
+bool queueFactoryReset() {
+  if (!configJobMutex) return false;
+  xSemaphoreTake(configJobMutex, portMAX_DELAY);
+  if (configJob.state == ConfigJobState::Queued || configJob.state == ConfigJobState::Processing ||
+      configJob.state == ConfigJobState::Succeeded) {
+    xSemaphoreGive(configJobMutex);
+    return false;
+  }
+  configJob.type = ConfigJobType::FactoryReset;
+  configJob.body[0] = '\0';
   configJob.error[0] = '\0';
   configJob.state = ConfigJobState::Queued;
   xSemaphoreGive(configJobMutex);
@@ -385,12 +404,11 @@ void registerRoutes() {
 
   server.on("/api/factory-reset", HTTP_POST, [](AsyncWebServerRequest* req) {
     REQUIRE_AUTH(req);
-    if (!Config::resetToDefaults()) {
-      sendError(req, 500, "factory reset failed");
+    if (!queueFactoryReset()) {
+      sendError(req, 503, "configuration save queue busy");
       return;
     }
-    sendJson(req, 200, "{\"ok\":true}");
-    Web::requestRestart(1500);
+    sendJson(req, 202, "{\"queued\":true}");
   });
 
   server.on("/api/ble/scan", HTTP_POST, [](AsyncWebServerRequest* req) {
@@ -441,21 +459,27 @@ void processConfigJob() {
   }
   char body[MAX_BODY + 1];
   memcpy(body, configJob.body, sizeof(body));
+  const ConfigJobType type = configJob.type;
   configJob.state = ConfigJobState::Processing;
   xSemaphoreGive(configJobMutex);
 
-  AppConfig next = Config::get();
   String err;
   bool saved = false;
-  if (!Config::fromJson(body, next, err)) {
-    saved = false;
+  if (type == ConfigJobType::FactoryReset) {
+    saved = Config::resetToDefaults();
+    if (!saved) err = "factory reset failed";
   } else {
-    std::vector<String> warnings;
-    if (!GpioMap::validate(next, err, warnings)) {
+    AppConfig next = Config::get();
+    if (!Config::fromJson(body, next, err)) {
       saved = false;
     } else {
-      saved = Config::save(next);
-      if (!saved) err = "save failed, config not changed";
+      std::vector<String> warnings;
+      if (!GpioMap::validate(next, err, warnings)) {
+        saved = false;
+      } else {
+        saved = Config::save(next);
+        if (!saved) err = "save failed, config not changed";
+      }
     }
   }
 
