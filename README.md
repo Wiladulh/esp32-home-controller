@@ -20,7 +20,7 @@ pio run                 # firmware
 pio run -t buildfs      # LittleFS berisi data/
 ```
 
-Framework: Arduino-ESP32 3.3.x lewat pioarduino (`platformio.ini` dipin ke rilis 55.03.39).
+Framework: Arduino-ESP32 3.3.x lewat pioarduino (`platformio.ini` dipin ke rilis 55.03.312).
 Partisi tanpa OTA: aplikasi 3 MB, LittleFS 832 KiB (`partitions.csv`, label `spiffs`), dan core dump 128 KiB. Pengaturan core dump, full default root CA bundle, serta MQTT WebSocket/WSS diterapkan melalui `custom_sdkconfig` khusus platform pioarduino (`sdkconfig.custom`). Build CI harus membuktikan konfigurasi tersebut berhasil diterapkan.
 Tidak ada OTA. Update firmware dilakukan dengan flash ulang dari PC.
 
