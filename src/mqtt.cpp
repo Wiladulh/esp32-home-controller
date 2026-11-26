@@ -74,7 +74,7 @@ void eventHandler(void*, esp_event_base_t, int32_t id, void* data) {
     case MQTT_EVENT_CONNECTED: {
       isConnected = true;
       String st = topic("status");
-      esp_mqtt_client_publish(client, st.c_str(), "online", 0, 1, 1);
+      esp_mqtt_client_enqueue(client, st.c_str(), "online", 0, 1, 1, true);
       subscribeAll();
       publishAllStates();
       break;
@@ -149,14 +149,14 @@ void publishRelay(uint8_t index, bool on) {
   if (!client || !isConnected) return;
   String t = topic(("relay" + String(index + 1) + "/state").c_str());
   const char* v = on ? "on" : "off";
-  esp_mqtt_client_publish(client, t.c_str(), v, 0, 1, 1);
+  esp_mqtt_client_enqueue(client, t.c_str(), v, 0, 1, 1, true);
 }
 
 void publishFan(uint8_t speed) {
   if (!client || !isConnected) return;
   String t = topic("fan1/state");
   char v[2] = {(char)('0' + speed), '\0'};
-  esp_mqtt_client_publish(client, t.c_str(), v, 1, 1, 1);
+  esp_mqtt_client_enqueue(client, t.c_str(), v, 1, 1, 1, true);
 }
 
 void publishSensor(float tempC, float humidity, bool hasHumidity) {
@@ -164,11 +164,11 @@ void publishSensor(float tempC, float humidity, bool hasHumidity) {
   char buf[16];
   String t = topic("sensor/temp");
   snprintf(buf, sizeof(buf), "%.1f", tempC);
-  esp_mqtt_client_publish(client, t.c_str(), buf, 0, 0, 1);
+  esp_mqtt_client_enqueue(client, t.c_str(), buf, 0, 0, 1, true);
   if (hasHumidity) {
     t = topic("sensor/humidity");
     snprintf(buf, sizeof(buf), "%.1f", humidity);
-    esp_mqtt_client_publish(client, t.c_str(), buf, 0, 0, 1);
+    esp_mqtt_client_enqueue(client, t.c_str(), buf, 0, 0, 1, true);
   }
 }
 
