@@ -94,7 +94,11 @@ void checkFactoryReset() {
     if (resetHoldStart == 0) resetHoldStart = millis();
     if (millis() - resetHoldStart >= FACTORY_RESET_HOLD_MS) {
       Serial.println("Factory reset: clearing config.");
-      Config::resetToDefaults();
+      if (!Config::resetToDefaults()) {
+        Serial.println("Factory reset failed; configuration was not changed.");
+        resetHoldStart = 0;
+        return;
+      }
       delay(200);
       ESP.restart();
     }
