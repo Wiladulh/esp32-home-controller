@@ -131,9 +131,7 @@ void onChange(ChangeCb cb) {
 }
 
 void allOff() {
-  for (uint8_t i = 0; i < MAX_RELAYS; i++) {
-    if (st[i].enabled) set(i, false);
-  }
+  for (uint8_t i = 0; i < MAX_RELAYS; i++) set(i, false);
 }
 
 }  // namespace Relay
