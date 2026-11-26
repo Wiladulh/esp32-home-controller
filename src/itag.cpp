@@ -200,19 +200,15 @@ void tick() {
     }
   }
 
-  // group presses into clicks once the window has passed
+  // Atomically drain the click batch only after the grouping window has elapsed.
   uint8_t n = 0;
-  uint32_t last = 0;
   portENTER_CRITICAL(&mux);
-  n = pendingPresses;
-  last = lastPressMs;
-  portEXIT_CRITICAL(&mux);
-  if (n > 0 && now - last >= CLICK_WINDOW_MS) {
-    portENTER_CRITICAL(&mux);
+  if (pendingPresses > 0 && now - lastPressMs >= CLICK_WINDOW_MS) {
+    n = pendingPresses;
     pendingPresses = 0;
-    portEXIT_CRITICAL(&mux);
-    if (clickCb) clickCb(n);
   }
+  portEXIT_CRITICAL(&mux);
+  if (n > 0 && clickCb) clickCb(n);
 }
 
 }  // namespace ITag
