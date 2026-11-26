@@ -469,6 +469,9 @@ void processConfigJob() {
   configJob.state = ConfigJobState::Processing;
   xSemaphoreGive(configJobMutex);
 
+  Serial.printf("[cfg] job started: type=%s, free_heap=%u\\n",
+                type == ConfigJobType::Save ? "save" : "factory-reset",
+                (unsigned)ESP.getFreeHeap());
   String err;
   bool saved = false;
   if (type == ConfigJobType::FactoryReset) {
@@ -476,14 +479,18 @@ void processConfigJob() {
     if (!saved) err = "factory reset failed";
   } else {
     AppConfig next = Config::get();
+    Serial.println("[cfg] parsing submitted configuration");
     if (!Config::fromJson(configJob.body, next, err)) {
-      saved = false;
+      Serial.printf("[cfg] configuration rejected: %s\\n", err.c_str());
     } else {
+      Serial.println("[cfg] configuration parsed; validating GPIO map");
       std::vector<String> warnings;
       if (!GpioMap::validate(next, err, warnings)) {
-        saved = false;
+        Serial.printf("[cfg] GPIO validation failed: %s\\n", err.c_str());
       } else {
+        Serial.println("[cfg] validation passed; writing and verifying NVS");
         saved = Config::save(next);
+        Serial.printf("[cfg] NVS save result: %s\\n", saved ? "success" : "failure");
         if (!saved) err = "save failed, config not changed";
       }
     }
