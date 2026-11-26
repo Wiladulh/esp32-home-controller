@@ -3,6 +3,8 @@
 #include <DHT.h>
 #include <OneWire.h>
 #include <DallasTemperature.h>
+#include <freertos/FreeRTOS.h>
+#include <freertos/semphr.h>
 #include "config.h"
 
 namespace {
@@ -19,11 +21,14 @@ Sensor::ReadingCb readingCb;
 DHT* dht = nullptr;
 OneWire* oneWire = nullptr;
 DallasTemperature* ds = nullptr;
+SemaphoreHandle_t stateMutex = nullptr;
 }  // namespace
 
 namespace Sensor {
 
 void begin() {
+  stateMutex = xSemaphoreCreateMutex();
+  if (!stateMutex) return;
   const SensorCfg& c = Config::get().sensor;
   type = c.type;
   pin = c.gpio;
@@ -41,37 +46,72 @@ void begin() {
 }
 
 void tick() {
-  if (type == SensorType::None || pin < 0) return;
-  uint32_t now = millis();
+  if (type == SensorType::None || pin < 0 || !stateMutex) return;
+  const uint32_t now = millis();
   if (haveReading && now - lastReadMs < intervalMs) return;
-  if (!haveReading && lastReadMs != 0 && now - lastReadMs < 2000) return;  // retry spacing
+  if (!haveReading && lastReadMs != 0 && now - lastReadMs < 2000) return;
   lastReadMs = now;
 
+  float nextTemp = 0;
+  float nextHumidity = 0;
+  bool nextHasHumidity = false;
   if (type == SensorType::Dht22 && dht) {
-    float t = dht->readTemperature();
-    float h = dht->readHumidity();
-    if (isnan(t) || isnan(h)) return;  // failed read, keep previous value
-    tempC = t;
-    hum = h;
-    humOk = true;
+    nextTemp = dht->readTemperature();
+    nextHumidity = dht->readHumidity();
+    if (isnan(nextTemp) || isnan(nextHumidity)) return;
+    nextHasHumidity = true;
   } else if (type == SensorType::Ds18b20 && ds) {
     ds->requestTemperatures();
-    float t = ds->getTempCByIndex(0);
-    if (t == DEVICE_DISCONNECTED_C) return;
-    tempC = t;
-    humOk = false;
+    nextTemp = ds->getTempCByIndex(0);
+    if (nextTemp == DEVICE_DISCONNECTED_C) return;
   } else {
     return;
   }
 
+  ReadingCb cb;
+  xSemaphoreTake(stateMutex, portMAX_DELAY);
+  tempC = nextTemp;
+  hum = nextHumidity;
+  humOk = nextHasHumidity;
   haveReading = true;
-  if (readingCb) readingCb(tempC, hum, humOk);
+  cb = readingCb;
+  xSemaphoreGive(stateMutex);
+  if (cb) cb(nextTemp, nextHumidity, nextHasHumidity);
 }
 
-bool valid() { return haveReading; }
-float lastTemp() { return tempC; }
-float lastHumidity() { return hum; }
-bool hasHumidity() { return humOk; }
-void onReading(ReadingCb cb) { readingCb = cb; }
+bool valid() {
+  if (!stateMutex) return false;
+  xSemaphoreTake(stateMutex, portMAX_DELAY);
+  const bool value = haveReading;
+  xSemaphoreGive(stateMutex);
+  return value;
+}
+float lastTemp() {
+  if (!stateMutex) return 0;
+  xSemaphoreTake(stateMutex, portMAX_DELAY);
+  const float value = tempC;
+  xSemaphoreGive(stateMutex);
+  return value;
+}
+float lastHumidity() {
+  if (!stateMutex) return 0;
+  xSemaphoreTake(stateMutex, portMAX_DELAY);
+  const float value = hum;
+  xSemaphoreGive(stateMutex);
+  return value;
+}
+bool hasHumidity() {
+  if (!stateMutex) return false;
+  xSemaphoreTake(stateMutex, portMAX_DELAY);
+  const bool value = humOk;
+  xSemaphoreGive(stateMutex);
+  return value;
+}
+void onReading(ReadingCb cb) {
+  if (!stateMutex) return;
+  xSemaphoreTake(stateMutex, portMAX_DELAY);
+  readingCb = cb;
+  xSemaphoreGive(stateMutex);
+}
 
 }  // namespace Sensor
