@@ -134,6 +134,7 @@ struct ConfigJob {
   char error[128]{};
   ConfigJobType type = ConfigJobType::Save;
   ConfigJobState state = ConfigJobState::Idle;
+  bool verified = false;
 };
 
 ConfigJob configJob;
@@ -150,6 +151,7 @@ bool queueConfigSave(const RequestBody* body) {
   memcpy(configJob.body, body->data, body->length + 1);
   configJob.type = ConfigJobType::Save;
   configJob.error[0] = '\0';
+  configJob.verified = false;
   configJob.state = ConfigJobState::Queued;
   xSemaphoreGive(configJobMutex);
   return true;
@@ -166,6 +168,7 @@ bool queueFactoryReset() {
   configJob.type = ConfigJobType::FactoryReset;
   configJob.body[0] = '\0';
   configJob.error[0] = '\0';
+  configJob.verified = false;
   configJob.state = ConfigJobState::Queued;
   xSemaphoreGive(configJobMutex);
   return true;
@@ -399,6 +402,7 @@ void registerRoutes() {
     }
     JsonDocument out;
     out["state"] = state;
+    out["verified"] = configJob.verified;
     if (configJob.state == ConfigJobState::Failed) out["error"] = configJob.error;
     String response;
     serializeJson(out, response);
@@ -486,15 +490,16 @@ void processConfigJob() {
   }
 
   xSemaphoreTake(configJobMutex, portMAX_DELAY);
+  configJob.verified = saved;
   if (saved) {
     configJob.state = ConfigJobState::Succeeded;
-  configJob.error[0] = '\0';
+    configJob.error[0] = '\0';
   } else {
     configJob.state = ConfigJobState::Failed;
     strlcpy(configJob.error, err.c_str(), sizeof(configJob.error));
   }
   xSemaphoreGive(configJobMutex);
-  if (saved) Web::requestRestart(3000);
+  if (saved) Web::requestRestart(8000);
 }
 
 }  // namespace
