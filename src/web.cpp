@@ -141,7 +141,7 @@ bool queueConfigSave(const RequestBody* body) {
     return false;
   }
   memcpy(configJob.body, body->data, body->length + 1);
-  configJob.error[0] = '\\0';
+  configJob.error[0] = '\0';
   configJob.state = ConfigJobState::Queued;
   xSemaphoreGive(configJobMutex);
   return true;
@@ -336,7 +336,7 @@ void registerRoutes() {
       sendError(req, 503, "configuration save queue busy");
       return;
     }
-    sendJson(req, 202, "{\\"queued\\":true}");
+    sendJson(req, 202, "{\"queued\":true}");
   }, nullptr, bodyChunk);
 
   server.on("/api/config/status", HTTP_GET, [](AsyncWebServerRequest* req) {
@@ -362,7 +362,11 @@ void registerRoutes() {
 
   server.on("/api/factory-reset", HTTP_POST, [](AsyncWebServerRequest* req) {
     REQUIRE_AUTH(req);
-    if (!Config::resetToDefaults()) {\n      sendError(req, 500, "factory reset failed");\n      return;\n    }\n    sendJson(req, 200, "{\\"ok\\":true}");
+    if (!Config::resetToDefaults()) {
+      sendError(req, 500, "factory reset failed");
+      return;
+    }
+    sendJson(req, 200, "{\"ok\":true}");
     Web::requestRestart(1500);
   });
 
@@ -435,7 +439,7 @@ void processConfigJob() {
   xSemaphoreTake(configJobMutex, portMAX_DELAY);
   if (saved) {
     configJob.state = ConfigJobState::Succeeded;
-    configJob.error[0] = '\\0';
+  configJob.error[0] = '\0';
   } else {
     configJob.state = ConfigJobState::Failed;
     strlcpy(configJob.error, err.c_str(), sizeof(configJob.error));
