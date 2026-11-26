@@ -497,16 +497,17 @@ void processConfigJob() {
 
 namespace Web {
 
-void begin() {
+bool begin() {
   bodyMutex = xSemaphoreCreateMutex();
   configJobMutex = xSemaphoreCreateMutex();
   authMutex = xSemaphoreCreateMutex();
   if (!bodyMutex || !configJobMutex || !authMutex) {
-    Serial.println("[web] failed to create request-body mutex; server not started");
-    return;
+    Serial.println("[web] failed to create required mutexes; server not started");
+    return false;
   }
   registerRoutes();
   server.begin();
+  return true;
 }
 
 void requestRestart(uint32_t delayMs) {
