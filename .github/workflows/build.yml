@@ -27,6 +27,24 @@ jobs:
       - name: Build LittleFS (WebUI)
         run: pio run -e esp32dev -t buildfs
 
+      - name: Check inline WebUI JavaScript syntax
+        run: |
+          python - <<'PY'
+          import re
+          from pathlib import Path
+
+          html = Path("data/index.html").read_text(encoding="utf-8")
+          scripts = [
+              match.group(1)
+              for match in re.finditer(r"<script\\b[^>]*>([\\s\\S]*?)</script\\s*>", html, re.IGNORECASE)
+              if match.group(1).strip()
+          ]
+          if not scripts:
+              raise SystemExit("No inline JavaScript found in data/index.html")
+          Path("/tmp/webui-inline-check.mjs").write_text("\\n".join(scripts), encoding="utf-8")
+          PY
+          node --check /tmp/webui-inline-check.mjs
+
       - name: Merge into one flash image (4 MB)
         run: |
           B=.pio/build/esp32dev
