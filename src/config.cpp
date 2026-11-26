@@ -2,10 +2,13 @@
 #include <ArduinoJson.h>
 #include <Preferences.h>
 #include <string.h>
+#include <freertos/FreeRTOS.h>
+#include <freertos/semphr.h>
 
 namespace {
 Preferences prefs;
 AppConfig current;
+SemaphoreHandle_t configMutex = nullptr;
 constexpr const char* NS = "cfg";
 constexpr const char* KEY = "json";
 
@@ -36,7 +39,10 @@ void readRelay(JsonObjectConst o, RelayCfg& r) {
 
 namespace Config {
 
+String toJsonUnlocked(bool includeSecrets);
+
 void begin() {
+  if (!configMutex) configMutex = xSemaphoreCreateMutex();
   // A missing namespace is normal on first boot. Do not read through an
   // unopened Preferences handle.
   if (!prefs.begin(NS, true)) {
@@ -60,12 +66,20 @@ void begin() {
   }
 }
 
-const AppConfig& get() { return current; }
+AppConfig get() {
+  if (configMutex) xSemaphoreTake(configMutex, portMAX_DELAY);
+  AppConfig snapshot = current;
+  if (configMutex) xSemaphoreGive(configMutex);
+  return snapshot;
+}
 
 bool save(const AppConfig& cfg) {
+  if (configMutex) xSemaphoreTake(configMutex, portMAX_DELAY);
   AppConfig previous = current;
-  current = cfg;                 // toJson() serializes `current`, so assign it first
-  String json = toJson(true);    // persist everything, including secrets
+  current = cfg;
+  String json = toJsonUnlocked(true);
+  current = previous;
+  if (configMutex) xSemaphoreGive(configMutex);
   if (!prefs.begin(NS, false)) {
     Serial.println("[cfg] NVS write namespace open failed");
     current = previous;
@@ -84,10 +98,10 @@ bool save(const AppConfig& cfg) {
   }
   Serial.printf("[cfg] save: json=%u bytes, nvs wrote=%u, read back=%u, match=%d\n",
                 (unsigned)json.length(), (unsigned)n, (unsigned)stored.length(), (int)(readOk && stored == json));
-  if (n == 0 || !readOk || stored != json) {
-    current = previous;
-    return false;
-  }
+  if (n == 0 || !readOk || stored != json) return false;
+  if (configMutex) xSemaphoreTake(configMutex, portMAX_DELAY);
+  current = cfg;
+  if (configMutex) xSemaphoreGive(configMutex);
   return true;
 }
 
@@ -107,7 +121,7 @@ bool resetToDefaults() {
   return true;
 }
 
-String toJson(bool includeSecrets) {
+String toJsonUnlocked(bool includeSecrets) {
   JsonDocument doc;
   doc["pin"] = includeSecrets ? current.pin : "";
   doc["apPass"] = includeSecrets ? current.apPass : "";
@@ -151,6 +165,13 @@ String toJson(bool includeSecrets) {
 
   String out;
   serializeJson(doc, out);
+  return out;
+}
+
+String toJson(bool includeSecrets) {
+  if (configMutex) xSemaphoreTake(configMutex, portMAX_DELAY);
+  String out = toJsonUnlocked(includeSecrets);
+  if (configMutex) xSemaphoreGive(configMutex);
   return out;
 }
 
