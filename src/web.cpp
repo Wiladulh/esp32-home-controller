@@ -192,7 +192,11 @@ bool bodyUsable(AsyncWebServerRequest* req, const RequestBody* body) {
   const size_t received = body ? body->length : 0;
   Serial.printf("[web] %s content-length=%u received=%u\n", req->url().c_str(),
                 (unsigned)req->contentLength(), (unsigned)received);
-  if (!req->hasHeader("Content-Type") || !req->header("Content-Type").startsWith("application/json")) {
+  String contentType = req->header("Content-Type");
+  const int parameterStart = contentType.indexOf(';');
+  if (parameterStart >= 0) contentType = contentType.substring(0, parameterStart);
+  contentType.trim();
+  if (!req->hasHeader("Content-Type") || !contentType.equalsIgnoreCase("application/json")) {
     sendError(req, 415, "content-type must be application/json");
     return false;
   }
