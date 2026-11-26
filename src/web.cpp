@@ -322,8 +322,7 @@ void registerRoutes() {
 
   server.on("/api/factory-reset", HTTP_POST, [](AsyncWebServerRequest* req) {
     REQUIRE_AUTH(req);
-    Config::resetToDefaults();
-    sendJson(req, 200, "{\"ok\":true}");
+    if (!Config::resetToDefaults()) {\n      sendError(req, 500, "factory reset failed");\n      return;\n    }\n    sendJson(req, 200, "{\\"ok\\":true}");
     Web::requestRestart(1500);
   });
 
