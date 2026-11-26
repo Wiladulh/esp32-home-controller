@@ -30,6 +30,7 @@ struct Session {
   uint32_t lastMs = 0;
 };
 Session session;
+SemaphoreHandle_t authMutex = nullptr;
 
 uint8_t failCount = 0;
 uint32_t lockoutUntilMs = 0;
@@ -47,17 +48,20 @@ String randomToken() {
 
 // Only the config (PIN-protected) endpoints check the session.
 bool sessionValid(AsyncWebServerRequest* req) {
-  if (!req->hasHeader("Authorization")) return false;
-  String h = req->header("Authorization");
-  if (!h.startsWith("Bearer ")) return false;
-  String t = h.substring(7);
-  if (session.token.length() == 0 || t != session.token) return false;
-  if (millis() - session.lastMs > SESSION_IDLE_MS) {
+  if (!authMutex || !req->hasHeader("Authorization")) return false;
+  String header = req->header("Authorization");
+  if (!header.startsWith("Bearer ")) return false;
+  const String supplied = header.substring(7);
+
+  xSemaphoreTake(authMutex, portMAX_DELAY);
+  bool valid = session.token.length() > 0 && supplied == session.token;
+  if (valid && millis() - session.lastMs > SESSION_IDLE_MS) {
     session.token = "";
-    return false;
+    valid = false;
   }
-  session.lastMs = millis();
-  return true;
+  if (valid) session.lastMs = millis();
+  xSemaphoreGive(authMutex);
+  return valid;
 }
 
 void sendJson(AsyncWebServerRequest* req, int code, const String& body) {
@@ -265,35 +269,50 @@ void registerRoutes() {
   // ---- Public: dashboard (works without PIN, so family can switch things when MQTT or iTag fails)
   server.on("/api/login", HTTP_POST, [](AsyncWebServerRequest* req) {
     RequestBodyGuard bodyGuard{takeRequestBody(req)};
-    if (lockoutUntilMs && millis() < lockoutUntilMs) {
-      sendError(req, 429, "locked out, try again later");
-      return;
-    }
     if (!bodyUsable(req, bodyGuard.body)) return;
     JsonDocument in;
     if (deserializeJson(in, bodyGuard.body->data) || !in["pin"].is<const char*>()) {
       sendError(req, 400, "bad request");
       return;
     }
-    if (strcmp(in["pin"], Config::get().pin) != 0) {
-      failCount++;
+
+    const AppConfig cfg = Config::get();
+    int errorCode = 0;
+    const char* errorMessage = nullptr;
+    String token;
+    xSemaphoreTake(authMutex, portMAX_DELAY);
+    const uint32_t now = millis();
+    if (lockoutUntilMs && now < lockoutUntilMs) {
+      errorCode = 429;
+      errorMessage = "locked out, try again later";
+    } else if (strcmp(in["pin"], cfg.pin) != 0) {
+      ++failCount;
       if (failCount >= MAX_FAILS) {
-        lockoutUntilMs = millis() + LOCKOUT_MS;
+        lockoutUntilMs = now + LOCKOUT_MS;
         failCount = 0;
-        sendError(req, 429, "too many attempts, locked for 5 minutes");
-        return;
+        errorCode = 429;
+        errorMessage = "too many attempts, locked for 5 minutes";
+      } else {
+        errorCode = 401;
+        errorMessage = "wrong pin";
       }
-      sendError(req, 401, "wrong pin");
+    } else {
+      failCount = 0;
+      session.token = randomToken();
+      session.lastMs = now;
+      token = session.token;
+    }
+    xSemaphoreGive(authMutex);
+
+    if (errorCode) {
+      sendError(req, errorCode, errorMessage);
       return;
     }
-    failCount = 0;
-    session.token = randomToken();
-    session.lastMs = millis();
     JsonDocument out;
-    out["token"] = session.token;
-    String s;
-    serializeJson(out, s);
-    sendJson(req, 200, s);
+    out["token"] = token;
+    String response;
+    serializeJson(out, response);
+    sendJson(req, 200, response);
   }, nullptr, bodyChunk);
 
   server.on("/api/status", HTTP_GET, [](AsyncWebServerRequest* req) {
@@ -455,7 +474,8 @@ namespace Web {
 void begin() {
   bodyMutex = xSemaphoreCreateMutex();
   configJobMutex = xSemaphoreCreateMutex();
-  if (!bodyMutex || !configJobMutex) {
+  authMutex = xSemaphoreCreateMutex();
+  if (!bodyMutex || !configJobMutex || !authMutex) {
     Serial.println("[web] failed to create request-body mutex; server not started");
     return;
   }
