@@ -282,7 +282,7 @@ void registerRoutes() {
     String token;
     xSemaphoreTake(authMutex, portMAX_DELAY);
     const uint32_t now = millis();
-    if (lockoutUntilMs && now < lockoutUntilMs) {
+    if (lockoutUntilMs && static_cast<int32_t>(now - lockoutUntilMs) < 0) {
       errorCode = 429;
       errorMessage = "locked out, try again later";
     } else if (strcmp(in["pin"], cfg.pin) != 0) {
