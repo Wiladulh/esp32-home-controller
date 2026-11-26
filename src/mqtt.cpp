@@ -3,13 +3,14 @@
 #include <esp_crt_bundle.h>
 #include <string.h>
 #include <strings.h>
+#include <atomic>
 #include "config.h"
 #include "fan.h"
 #include "relay.h"
 
 namespace {
 esp_mqtt_client_handle_t client = nullptr;
-bool isConnected = false;
+std::atomic<bool> isConnected{false};
 String prefix;
 
 String topic(const char* suffix) { return prefix + suffix; }
@@ -141,7 +142,7 @@ void stop() {
   isConnected = false;
 }
 
-bool connected() { return isConnected; }
+bool connected() { return isConnected.load(std::memory_order_acquire); }
 
 void publishRelay(uint8_t index, bool on) {
   if (!client || !isConnected) return;
