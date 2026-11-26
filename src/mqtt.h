@@ -4,10 +4,10 @@
 // MQTT over WSS/WS/TCP using ESP-IDF esp_mqtt (bundled with Arduino-ESP32).
 //
 // Topics (prefix comes from WebUI, e.g. "set/set"; may be empty):
-//   command:  {prefix}/r1 .. {prefix}/r8          payload: on | off (also 1 / 0)
-//   command:  {prefix}/f1 .. {prefix}/f3          payload: on | off; ON selects that fan speed
-//   state:    {prefix}/r1/state .. {prefix}/r8/state retained, on | off
-//   state:    {prefix}/f1/state .. {prefix}/f3/state retained, on | off
+//   command/state: {prefix}/relay1 .. {prefix}/relay8          payload: on | off (also 1 / 0)
+//   command/state: {prefix}/fan1 .. {prefix}/fan3          payload: on | off; ON selects that fan speed
+//   (same topic; non-retained status, on | off)
+//   (same topic; non-retained status, on | off)
 //   sensor:   {prefix}/sensor/temp                retained, degrees C
 //   sensor:   {prefix}/sensor/humidity            retained, % (DHT22 only)
 //   status:   {prefix}/status                     retained, online | offline (LWT)
