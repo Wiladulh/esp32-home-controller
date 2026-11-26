@@ -52,23 +52,23 @@ jobs:
           html = Path("data/index.html").read_text(encoding="utf-8")
           scripts = [
               match.group(1)
-              for match in re.finditer(r"<script\\b[^>]*>([\\s\\S]*?)</script\\s*>", html, re.IGNORECASE)
+              for match in re.finditer(r"<script\b[^>]*>([\s\S]*?)</script\s*>", html, re.IGNORECASE)
               if match.group(1).strip()
           ]
           if not scripts:
               raise SystemExit("No inline JavaScript found in data/index.html")
-          Path("/tmp/webui-inline-check.mjs").write_text("\\n".join(scripts), encoding="utf-8")
+          Path("/tmp/webui-inline-check.mjs").write_text("\n".join(scripts), encoding="utf-8")
           PY
           node --check /tmp/webui-inline-check.mjs
 
       - name: Merge into one flash image (4 MB)
         run: |
           B=.pio/build/esp32dev
-          python -m esptool --chip esp32 merge-bin \\
-            -o full-flash-4MB.bin --flash-mode dio --flash-size 4MB \\
-            0x1000  $B/bootloader.bin \\
-            0x8000  $B/partitions.bin \\
-            0x10000 $B/firmware.bin \\
+          python -m esptool --chip esp32 merge-bin \
+            -o full-flash-4MB.bin --flash-mode dio --flash-size 4MB \
+            0x1000  $B/bootloader.bin \
+            0x8000  $B/partitions.bin \
+            0x10000 $B/firmware.bin \
             0x310000 $B/littlefs.bin
           cp $B/firmware.bin firmware-app-only.bin
 
