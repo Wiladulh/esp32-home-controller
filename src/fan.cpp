@@ -58,7 +58,6 @@ void begin() {
   for (uint8_t i = 0; i < FAN_MAX_SPEEDS; i++) {
     pins[i] = enabled ? f.speedGpio[i] : -1;
     if (pins[i] >= 0) {
-      digitalWrite(pins[i], activeHigh ? LOW : HIGH);
       pinMode(pins[i], OUTPUT);
       digitalWrite(pins[i], activeHigh ? LOW : HIGH);
     }
@@ -92,6 +91,19 @@ bool setSpeed(uint8_t target) {
   bool notify = false;
   xSemaphoreTake(stateMutex, portMAX_DELAY);
   const bool accepted = scheduleSpeedLocked(target, cb, notify);
+  xSemaphoreGive(stateMutex);
+  if (notify && cb) cb(0);
+  return accepted;
+}
+
+bool setSpeedIfCurrent(uint8_t expectedSpeed, uint8_t targetSpeed) {
+  if (!stateMutex) return false;
+  ChangeCb cb;
+  bool notify = false;
+  xSemaphoreTake(stateMutex, portMAX_DELAY);
+  const uint8_t current = pendingActive ? pendingSpeed : speed;
+  const bool accepted = current == expectedSpeed &&
+                        scheduleSpeedLocked(targetSpeed, cb, notify);
   xSemaphoreGive(stateMutex);
   if (notify && cb) cb(0);
   return accepted;
