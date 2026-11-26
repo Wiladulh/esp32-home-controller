@@ -91,11 +91,20 @@ bool save(const AppConfig& cfg) {
   return true;
 }
 
-void resetToDefaults() {
-  prefs.begin(NS, false);
-  prefs.clear();
+bool resetToDefaults() {
+  if (!prefs.begin(NS, false)) {
+    Serial.println("[cfg] NVS reset namespace open failed");
+    return false;
+  }
+  const bool cleared = prefs.clear();
+  const bool empty = cleared && !prefs.isKey(KEY);
   prefs.end();
+  if (!empty) {
+    Serial.println("[cfg] NVS reset failed; current config retained");
+    return false;
+  }
   current = AppConfig{};
+  return true;
 }
 
 String toJson(bool includeSecrets) {
