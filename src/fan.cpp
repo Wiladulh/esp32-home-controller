@@ -28,6 +28,21 @@ void writeRelay(uint8_t s, bool on) {  // s = 1..maxSpd
 void allSpeedOff() {
   for (uint8_t s = 1; s <= maxSpd; s++) writeRelay(s, false);
 }
+
+bool scheduleSpeedLocked(uint8_t target, Fan::ChangeCb& cb, bool& notify) {
+  if (!enabled || target > maxSpd) return false;
+  if (target == speed && !pendingActive) return true;
+  allSpeedOff();
+  speed = 0;
+  pendingSpeed = target;
+  pendingActive = target != 0;
+  pendingAtMs = millis();
+  if (target == 0) {
+    cb = changeCb;
+    notify = true;
+  }
+  return true;
+}
 }  // namespace
 
 namespace Fan {
@@ -76,27 +91,10 @@ bool setSpeed(uint8_t target) {
   ChangeCb cb;
   bool notify = false;
   xSemaphoreTake(stateMutex, portMAX_DELAY);
-  if (!enabled || target > maxSpd) {
-    xSemaphoreGive(stateMutex);
-    return false;
-  }
-  if (target == speed && !pendingActive) {
-    xSemaphoreGive(stateMutex);
-    return true;
-  }
-
-  allSpeedOff();
-  speed = 0;
-  pendingSpeed = target;
-  pendingActive = target != 0;
-  pendingAtMs = millis();
-  if (target == 0) {
-    cb = changeCb;
-    notify = true;
-  }
+  const bool accepted = scheduleSpeedLocked(target, cb, notify);
   xSemaphoreGive(stateMutex);
   if (notify && cb) cb(0);
-  return true;
+  return accepted;
 }
 
 uint8_t getSpeed() {
@@ -129,9 +127,11 @@ void onChange(ChangeCb cb) {
 
 void handleClicks(uint8_t clicks) {
   if (!stateMutex) return;
+  ChangeCb cb;
+  bool notify = false;
+  xSemaphoreTake(stateMutex, portMAX_DELAY);
   uint8_t target = 0;
   bool shouldChange = false;
-  xSemaphoreTake(stateMutex, portMAX_DELAY);
   if (enabled && clicks == 1) {
     target = (speed > 0 || pendingActive) ? 0 : 1;
     shouldChange = true;
@@ -142,8 +142,9 @@ void handleClicks(uint8_t clicks) {
       shouldChange = true;
     }
   }
+  if (shouldChange) scheduleSpeedLocked(target, cb, notify);
   xSemaphoreGive(stateMutex);
-  if (shouldChange) setSpeed(target);
+  if (notify && cb) cb(0);
 }
 
 }  // namespace Fan
