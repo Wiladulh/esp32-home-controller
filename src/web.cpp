@@ -6,6 +6,8 @@
 #include <esp_system.h>
 #include <atomic>
 #include <new>
+#include <freertos/FreeRTOS.h>
+#include <freertos/semphr.h>
 #include "config.h"
 #include "gpio_map.h"
 #include "relay.h"
@@ -88,80 +90,93 @@ struct RequestBody {
 constexpr uint8_t MAX_ACTIVE_BODIES = 2;
 std::atomic<uint8_t> activeBodies{0};
 
+SemaphoreHandle_t bodyMutex = nullptr;
+
 RequestBody* requestBody(AsyncWebServerRequest* req) {
   return static_cast<RequestBody*>(req->_tempObject);
 }
 
+RequestBody* takeRequestBody(AsyncWebServerRequest* req) {
+  if (!bodyMutex) return nullptr;
+  xSemaphoreTake(bodyMutex, portMAX_DELAY);
+  auto* body = requestBody(req);
+  req->_tempObject = nullptr;
+  xSemaphoreGive(bodyMutex);
+  return body;
+}
+
+void releaseRequestBody(AsyncWebServerRequest* req) {
+  auto* body = takeRequestBody(req);
+  if (!body) return;
+  delete body;
+  activeBodies.fetch_sub(1, std::memory_order_acq_rel);
+}
+
 struct RequestBodyGuard {
-  AsyncWebServerRequest* request;
+  RequestBody* body;
   ~RequestBodyGuard() {
-    auto* body = requestBody(request);
-    if (body) {
-      delete body;
-      request->_tempObject = nullptr;
-      activeBodies.fetch_sub(1, std::memory_order_acq_rel);
-    }
+    if (!body) return;
+    delete body;
+    activeBodies.fetch_sub(1, std::memory_order_acq_rel);
   }
 };
 
 void bodyChunk(AsyncWebServerRequest* req, uint8_t* data, size_t len, size_t index, size_t total) {
+  if (!bodyMutex) return;
   if (index == 0) {
     if (activeBodies.fetch_add(1, std::memory_order_acq_rel) >= MAX_ACTIVE_BODIES) {
       activeBodies.fetch_sub(1, std::memory_order_acq_rel);
-      req->_tempObject = nullptr;
       return;
     }
     auto* state = new (std::nothrow) RequestBody();
     if (!state) {
       activeBodies.fetch_sub(1, std::memory_order_acq_rel);
-      req->_tempObject = nullptr;
       return;
     }
-    req->_tempObject = state;
-    req->onDisconnect([req]() {
-      auto* body = requestBody(req);
-      if (body) {
-        delete body;
-        req->_tempObject = nullptr;
-        activeBodies.fetch_sub(1, std::memory_order_acq_rel);
-      }
-    });
     state->tooLarge = total > MAX_BODY;
-    Serial.printf("[web] body start, total=%u, heap=%u\n", (unsigned)total, (unsigned)ESP.getFreeHeap());
+    xSemaphoreTake(bodyMutex, portMAX_DELAY);
+    req->_tempObject = state;
+    req->onDisconnect([req]() { releaseRequestBody(req); });
+    xSemaphoreGive(bodyMutex);
+    Serial.printf("[web] body start, total=%u, heap=%u\\n", (unsigned)total, (unsigned)ESP.getFreeHeap());
   }
 
+  xSemaphoreTake(bodyMutex, portMAX_DELAY);
   auto* state = requestBody(req);
-  if (!state || state->tooLarge) return;
-  if (index != state->length || state->length + len > MAX_BODY) {
-    state->tooLarge = true;
-    return;
+  if (state && !state->tooLarge) {
+    if (index != state->length || state->length + len > MAX_BODY) {
+      state->tooLarge = true;
+    } else {
+      memcpy(state->data + state->length, data, len);
+      state->length += len;
+      state->data[state->length] = '\\0';
+    }
   }
-  memcpy(state->data + state->length, data, len);
-  state->length += len;
-  state->data[state->length] = '\0';
+  xSemaphoreGive(bodyMutex);
 }
 
 // POST bodies must be application/json. A cross-site form or text/plain request cannot
 // send that type without a CORS preflight, and this device never answers preflights,
 // so other websites cannot drive the public relay and fan endpoints.
-bool bodyUsable(AsyncWebServerRequest* req) {
-  const auto* body = requestBody(req);
-  Serial.printf("[web] %s content-length=%u received=%u\n", req->url().c_str(),
-                (unsigned)req->contentLength(), (unsigned)(body ? body->length : 0));
+bool bodyUsable(AsyncWebServerRequest* req, const RequestBody* body) {
+  const size_t received = body ? body->length : 0;
+  Serial.printf("[web] %s content-length=%u received=%u\\n", req->url().c_str(),
+                (unsigned)req->contentLength(), (unsigned)received);
   if (!req->hasHeader("Content-Type") || !req->header("Content-Type").startsWith("application/json")) {
     sendError(req, 415, "content-type must be application/json");
     return false;
   }
-  if (body && body->tooLarge) {
+  if (!body) {
+    sendError(req, req->contentLength() == 0 ? 400 : 503,
+              req->contentLength() == 0 ? "empty request body" : "request body capacity unavailable");
+    return false;
+  }
+  if (body->tooLarge) {
     sendError(req, 413, "body too large");
     return false;
   }
-  if (!body && req->contentLength() > 0) {
-    sendError(req, 503, "request body capacity unavailable");
-    return false;
-  }
-  if (req->contentLength() != (body ? body->length : 0)) {
-    sendError(req, 400, "incomplete body");
+  if (received == 0 || req->contentLength() != received) {
+    sendError(req, 400, received == 0 ? "empty request body" : "incomplete body");
     return false;
   }
   return true;
@@ -223,14 +238,14 @@ String configJson() {
 void registerRoutes() {
   // ---- Public: dashboard (works without PIN, so family can switch things when MQTT or iTag fails)
   server.on("/api/login", HTTP_POST, [](AsyncWebServerRequest* req) {
-    RequestBodyGuard bodyGuard{req};
+    RequestBodyGuard bodyGuard{takeRequestBody(req)};
     if (lockoutUntilMs && millis() < lockoutUntilMs) {
       sendError(req, 429, "locked out, try again later");
       return;
     }
-    if (!bodyUsable(req)) return;
+    if (!bodyUsable(req, bodyGuard.body)) return;
     JsonDocument in;
-    if (deserializeJson(in, requestBody(req)->data) || !in["pin"].is<const char*>()) {
+    if (deserializeJson(in, bodyGuard.body->data) || !in["pin"].is<const char*>()) {
       sendError(req, 400, "bad request");
       return;
     }
@@ -371,6 +386,11 @@ void registerRoutes() {
 namespace Web {
 
 void begin() {
+  bodyMutex = xSemaphoreCreateMutex();
+  if (!bodyMutex) {
+    Serial.println("[web] failed to create request-body mutex; server not started");
+    return;
+  }
   registerRoutes();
   server.begin();
 }
