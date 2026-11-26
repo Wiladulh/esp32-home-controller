@@ -64,7 +64,7 @@ struct AppConfig {
 
 namespace Config {
 void begin();                          // load from NVS or defaults
-const AppConfig& get();
+AppConfig get();
 bool save(const AppConfig& cfg);       // persists to NVS
 bool resetToDefaults();                // true only after NVS keys are cleared
 String toJson(bool includeSecrets);
