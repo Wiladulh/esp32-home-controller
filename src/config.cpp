@@ -79,7 +79,7 @@ void readRelay(JsonObjectConst o, RelayCfg& r) {
 
 namespace Config {
 
-String toJsonUnlocked(bool includeSecrets);
+String toJsonUnlocked(const AppConfig& cfg, bool includeSecrets);
 
 void begin() {
   if (!configMutex) configMutex = xSemaphoreCreateMutex();
@@ -114,12 +114,7 @@ AppConfig get() {
 }
 
 bool save(const AppConfig& cfg) {
-  if (configMutex) xSemaphoreTake(configMutex, portMAX_DELAY);
-  AppConfig previous = current;
-  current = cfg;
-  String json = toJsonUnlocked(true);
-  current = previous;
-  if (configMutex) xSemaphoreGive(configMutex);
+  String json = toJsonUnlocked(cfg, true);
   if (!prefs.begin(NS, false)) {
     Serial.println("[cfg] NVS write namespace open failed");
     return false;
@@ -162,47 +157,47 @@ bool resetToDefaults() {
   return true;
 }
 
-String toJsonUnlocked(bool includeSecrets) {
+String toJsonUnlocked(const AppConfig& cfg, bool includeSecrets) {
   JsonDocument doc;
-  doc["pin"] = includeSecrets ? current.pin : "";
-  doc["apPass"] = includeSecrets ? current.apPass : "";
-  doc["hostname"] = current.hostname;
+  doc["pin"] = includeSecrets ? cfg.pin : "";
+  doc["apPass"] = includeSecrets ? cfg.apPass : "";
+  doc["hostname"] = cfg.hostname;
 
   JsonObject w = doc["wifi"].to<JsonObject>();
-  w["ssid"] = current.wifi.ssid;
-  w["pass"] = includeSecrets ? current.wifi.pass : "";
+  w["ssid"] = cfg.wifi.ssid;
+  w["pass"] = includeSecrets ? cfg.wifi.pass : "";
 
   JsonObject m = doc["mqtt"].to<JsonObject>();
-  m["enabled"] = current.mqtt.enabled;
-  m["scheme"] = current.mqtt.scheme;
-  m["host"] = current.mqtt.host;
-  m["port"] = current.mqtt.port;
-  m["path"] = current.mqtt.path;
-  m["user"] = includeSecrets ? current.mqtt.user : "";
-  m["pass"] = includeSecrets ? current.mqtt.pass : "";
-  m["prefix"] = current.mqtt.topicPrefix;
+  m["enabled"] = cfg.mqtt.enabled;
+  m["scheme"] = cfg.mqtt.scheme;
+  m["host"] = cfg.mqtt.host;
+  m["port"] = cfg.mqtt.port;
+  m["path"] = cfg.mqtt.path;
+  m["user"] = includeSecrets ? cfg.mqtt.user : "";
+  m["pass"] = includeSecrets ? cfg.mqtt.pass : "";
+  m["prefix"] = cfg.mqtt.topicPrefix;
 
   JsonArray rel = doc["relays"].to<JsonArray>();
   for (uint8_t i = 0; i < MAX_RELAYS; i++) {
-    writeRelay(rel.add<JsonObject>(), current.relays[i], i);
+    writeRelay(rel.add<JsonObject>(), cfg.relays[i], i);
   }
 
   JsonObject f = doc["fan"].to<JsonObject>();
-  f["enabled"] = current.fan.enabled;
-  f["name"] = current.fan.name;
-  f["maxSpeed"] = current.fan.maxSpeed;
-  f["activeHigh"] = current.fan.activeHigh;
+  f["enabled"] = cfg.fan.enabled;
+  f["name"] = cfg.fan.name;
+  f["maxSpeed"] = cfg.fan.maxSpeed;
+  f["activeHigh"] = cfg.fan.activeHigh;
   JsonArray fg = f["speedGpio"].to<JsonArray>();
-  for (uint8_t i = 0; i < FAN_MAX_SPEEDS; i++) fg.add(current.fan.speedGpio[i]);
+  for (uint8_t i = 0; i < FAN_MAX_SPEEDS; i++) fg.add(cfg.fan.speedGpio[i]);
 
   JsonObject s = doc["sensor"].to<JsonObject>();
-  s["type"] = (uint8_t)current.sensor.type;
-  s["gpio"] = current.sensor.gpio;
-  s["intervalSec"] = current.sensor.intervalSec;
+  s["type"] = (uint8_t)cfg.sensor.type;
+  s["gpio"] = cfg.sensor.gpio;
+  s["intervalSec"] = cfg.sensor.intervalSec;
 
   JsonObject it = doc["itag"].to<JsonObject>();
-  it["enabled"] = current.itagEnabled;
-  it["addr"] = current.itagAddr;
+  it["enabled"] = cfg.itagEnabled;
+  it["addr"] = cfg.itagAddr;
 
   String out;
   serializeJson(doc, out);
@@ -211,7 +206,7 @@ String toJsonUnlocked(bool includeSecrets) {
 
 String toJson(bool includeSecrets) {
   if (configMutex) xSemaphoreTake(configMutex, portMAX_DELAY);
-  String out = toJsonUnlocked(includeSecrets);
+  String out = toJsonUnlocked(current, includeSecrets);
   if (configMutex) xSemaphoreGive(configMutex);
   return out;
 }
