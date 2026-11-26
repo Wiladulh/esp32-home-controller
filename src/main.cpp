@@ -52,7 +52,7 @@ void startAp() {
   WiFi.mode(WIFI_AP);
   WiFi.softAP(ssid.c_str(), pw);
   net = NetState::Ap;
-  Serial.printf("AP mode: SSID %s, password %s, open http://192.168.4.1\n", ssid.c_str(), pw);
+  Serial.printf("AP mode: SSID %s, open http://192.168.4.1\\n", ssid.c_str());
 }
 
 void startWifi() {
