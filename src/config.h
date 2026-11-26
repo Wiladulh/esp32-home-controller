@@ -66,7 +66,7 @@ namespace Config {
 void begin();                          // load from NVS or defaults
 const AppConfig& get();
 bool save(const AppConfig& cfg);       // persists to NVS
-void resetToDefaults();                // used by factory reset
+bool resetToDefaults();                // true only after NVS keys are cleared
 String toJson(bool includeSecrets);
 bool fromJson(const char* json, AppConfig& out, String& err);
 }
