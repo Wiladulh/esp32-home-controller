@@ -191,7 +191,7 @@ void tick() {
   uint32_t now = millis();
 
   // reconnect with backoff 2s -> 60s
-  if (Config::get().itagEnabled && !connected() && !scanning() && now >= nextAttemptMs) {
+  if (Config::get().itagEnabled && !connected() && !scanning() && static_cast<int32_t>(now - nextAttemptMs) >= 0) {
     if (tryConnect()) {
       reconnectDelay = RECONNECT_MIN_MS;
     } else {
