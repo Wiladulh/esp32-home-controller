@@ -22,6 +22,8 @@ NimBLEClient* client = nullptr;
 NimBLERemoteCharacteristic* notifyChr = nullptr;
 bool bleInit = false;
 bool isScanning = false;
+bool scanRequested = false;
+uint32_t requestedScanMs = 0;
 
 uint32_t reconnectDelay = RECONNECT_MIN_MS;
 uint32_t nextAttemptMs = 0;
@@ -140,23 +142,13 @@ void begin(ClickCb cb) {
 }
 
 void startScan(uint32_t ms) {
-  if (!ensureDataMutex() || !ensureInit()) return;
+  if (!ensureDataMutex()) return;
   xSemaphoreTake(dataMutex, portMAX_DELAY);
-  if (isScanning) {
-    xSemaphoreGive(dataMutex);
-    return;
+  if (!isScanning) {
+    requestedScanMs = ms;
+    scanRequested = true;
   }
-  found.clear();
-  isScanning = true;
   xSemaphoreGive(dataMutex);
-  NimBLEScan* scan = NimBLEDevice::getScan();
-  scan->setScanCallbacks(&scanCb, false);
-  scan->setActiveScan(true);
-  if (!scan->start(ms, false)) {
-    xSemaphoreTake(dataMutex, portMAX_DELAY);
-    isScanning = false;
-    xSemaphoreGive(dataMutex);
-  }
 }
 
 bool scanning() {
@@ -189,6 +181,36 @@ void stop() {
 
 void tick() {
   uint32_t now = millis();
+
+  bool startRequested = false;
+  uint32_t scanDuration = 0;
+  if (dataMutex) {
+    xSemaphoreTake(dataMutex, portMAX_DELAY);
+    if (scanRequested && !isScanning) {
+      scanRequested = false;
+      isScanning = true;
+      found.clear();
+      scanDuration = requestedScanMs;
+      startRequested = true;
+    }
+    xSemaphoreGive(dataMutex);
+  }
+  if (startRequested) {
+    if (ensureInit()) {
+      NimBLEScan* scan = NimBLEDevice::getScan();
+      scan->setScanCallbacks(&scanCb, false);
+      scan->setActiveScan(true);
+      if (!scan->start(scanDuration, false)) {
+        xSemaphoreTake(dataMutex, portMAX_DELAY);
+        isScanning = false;
+        xSemaphoreGive(dataMutex);
+      }
+    } else {
+      xSemaphoreTake(dataMutex, portMAX_DELAY);
+      isScanning = false;
+      xSemaphoreGive(dataMutex);
+    }
+  }
 
   // reconnect with backoff 2s -> 60s
   if (Config::get().itagEnabled && !connected() && !scanning() && static_cast<int32_t>(now - nextAttemptMs) >= 0) {
