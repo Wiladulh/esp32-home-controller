@@ -138,7 +138,7 @@ void bodyChunk(AsyncWebServerRequest* req, uint8_t* data, size_t len, size_t ind
     req->_tempObject = state;
     req->onDisconnect([req]() { releaseRequestBody(req); });
     xSemaphoreGive(bodyMutex);
-    Serial.printf("[web] body start, total=%u, heap=%u\\n", (unsigned)total, (unsigned)ESP.getFreeHeap());
+    Serial.printf("[web] body start, total=%u, heap=%u\n", (unsigned)total, (unsigned)ESP.getFreeHeap());
   }
 
   xSemaphoreTake(bodyMutex, portMAX_DELAY);
@@ -149,7 +149,7 @@ void bodyChunk(AsyncWebServerRequest* req, uint8_t* data, size_t len, size_t ind
     } else {
       memcpy(state->data + state->length, data, len);
       state->length += len;
-      state->data[state->length] = '\\0';
+      state->data[state->length] = '\0';
     }
   }
   xSemaphoreGive(bodyMutex);
@@ -160,7 +160,7 @@ void bodyChunk(AsyncWebServerRequest* req, uint8_t* data, size_t len, size_t ind
 // so other websites cannot drive the public relay and fan endpoints.
 bool bodyUsable(AsyncWebServerRequest* req, const RequestBody* body) {
   const size_t received = body ? body->length : 0;
-  Serial.printf("[web] %s content-length=%u received=%u\\n", req->url().c_str(),
+  Serial.printf("[web] %s content-length=%u received=%u\n", req->url().c_str(),
                 (unsigned)req->contentLength(), (unsigned)received);
   if (!req->hasHeader("Content-Type") || !req->header("Content-Type").startsWith("application/json")) {
     sendError(req, 415, "content-type must be application/json");
