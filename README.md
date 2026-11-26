@@ -89,7 +89,7 @@ Alternatif: tombol **Factory reset** di tab Config (perlu PIN).
 
 ## MQTT
 
-Broker default: `wss://mqtt.giebux.my.id:443/`. Prefix topik diatur di Config. Isi `set/set` akan menghasilkan topik `set/set/r1`; slash pemisah ditambahkan otomatis sehingga prefix tidak perlu diakhiri slash.
+Broker default: `wss://mqtt.giebux.my.id:443/`. Prefix topik diatur di Config. Isi `set/set` akan menghasilkan topik `set/set/relay1` dan `set/set/fan1`; slash pemisah ditambahkan otomatis sehingga prefix tidak perlu diakhiri slash.
 
 | Topik | Arah | Payload |
 |---|---|---|
@@ -100,6 +100,8 @@ Broker default: `wss://mqtt.giebux.my.id:443/`. Prefix topik diatur di Config. I
 | `{prefix}/sensor/temp` | sensor (retained) | angka desimal, °C |
 | `{prefix}/sensor/humidity` | sensor (retained) | angka desimal, % (DHT22 saja) |
 | `{prefix}/status` | LWT (retained) | `online` / `offline` |
+
+Pesan status relay/fan tidak menggunakan retained flag. Pesan perintah retained dari broker diabaikan firmware agar perintah lama tidak dijalankan ulang saat reconnect.
 
 Di aplikasi Android (mqtt), aktifkan TLS/SSL dan WebSocket.
 
