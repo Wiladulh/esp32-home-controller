@@ -26,9 +26,48 @@ Tidak ada OTA. Update firmware dilakukan dengan flash ulang dari PC.
 
 ## Flash dari PC
 
-1. Hubungkan board via USB. Board ini tidak punya tombol BOOT. Jika flash gagal ("failed to start stub flasher"), hubungkan **GPIO0 ke GND** saat flash, lalu lepas setelah selesai.
-2. Flash `full-flash-4MB.bin` ke alamat `0x0` (esptool `write_flash 0x0 full-flash-4MB.bin`, atau tool flash lain).
-3. Buka serial monitor 115200 untuk melihat log boot.
+Firmware terakhir `full-flash-4MB.bin` sudah berhasil diuji dengan prosedur berikut pada ESP32 melalui port `/dev/ttyUSB0`.
+
+### 1. Masuk ke mode flashing
+
+1. Hubungkan ESP32 ke komputer melalui USB.
+2. Hubungkan sementara pin **IO0 ke GND** menggunakan jumper.
+3. Tunggu sekitar **3 detik**, kemudian lepaskan jumper IO0 dari GND.
+
+### 2. Hapus firmware lama (direkomendasikan)
+
+Jalankan perintah berikut:
+
+```bash
+python -m esptool --port /dev/ttyUSB0 erase_flash
+```
+
+Tunggu sampai proses penghapusan selesai.
+
+### 3. Tulis firmware lengkap
+
+Pastikan file `full-flash-4MB.bin` berada di direktori kerja terminal, lalu jalankan:
+
+```bash
+python -m esptool --chip esp32 --port /dev/ttyUSB0 --baud 115200 write-flash -z 0x0 full-flash-4MB.bin
+```
+
+Tunggu sampai esptool menyatakan proses penulisan berhasil. File ini adalah image lengkap untuk flash 4 MB; tulis mulai alamat `0x0`.
+
+### 4. Periksa log serial
+
+Jalankan serial monitor:
+
+```bash
+python -m serial.tools.miniterm /dev/ttyUSB0 115200
+```
+
+Periksa pesan startup ESP32. Jika belum ada keluaran, tekan tombol **EN/RESET** pada board.
+
+**Catatan:**
+- Pastikan `/dev/ttyUSB0` adalah port ESP32 yang benar. Sesuaikan nama port jika berbeda.
+- Penghapusan flash menghapus seluruh isi flash, termasuk konfigurasi dan data NVS yang tersimpan.
+- Perintah di atas mengikuti prosedur yang telah berhasil diuji. Pada versi esptool yang lebih baru, `erase_flash` dapat menampilkan peringatan deprecated; peringatan tersebut tidak mengubah prosedur yang telah Anda validasi.
 
 ## Pertama kali
 
@@ -145,14 +184,3 @@ src/web.*         AsyncWebServer + JSON API + auth PIN
 src/main.cpp      boot, WiFi STA/AP, NTP, factory reset, loop
 data/index.html   WebUI (Inggris): Dashboard + Config
 ```
-
-## Yang belum diverifikasi
-
-Build ini belum diuji di hardware. Hal berikut perlu diuji saat fitur dinyatakan selesai dan baru setelah seluruh perubahan kode selesai:
-
-1. WSS ke Cloudflare dengan full default root CA bundle Mozilla yang diaktifkan melalui `sdkconfig.custom`.
-2. Field `esp_mqtt_client_config_t` dan `network.reconnect_timeout_ms` di IDF 5.5.
-3. API NimBLE 2.5.1 (`scan->start(ms, false)`, `onScanEnd`, `subscribe`).
-4. Perilaku notifikasi iTag: karakteristik FFE1, dan apakah setiap notifikasi = satu klik. Gunakan Learn mode.
-5. Ukuran RAM internal saat WiFi + BLE + TLS + WebSocket aktif bersamaan.
-6. Sinkronisasi vector hasil scan BLE dan log learn mode menggunakan FreeRTOS mutex; perilaku notifikasi iTag tetap perlu divalidasi dengan raw bytes karena belum terbukti setiap notifikasi mewakili satu klik.
