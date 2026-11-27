@@ -1,4 +1,6 @@
 #include "gpio_map.h"
+#include <cstring>
+#include <utility>
 
 namespace {
 constexpr int8_t BOARD_PINS[] = {4, 16, 17, 18, 19, 21, 22, 23, 25, 26, 27, 32, 33};
@@ -46,7 +48,8 @@ bool validate(const AppConfig& cfg, String& err, std::vector<String>& warnings) 
     const RelayCfg& r = cfg.relays[i];
     if (!r.enabled) continue;
     const String label = "Relay " + String(i + 1);
-    if (r.gpio < 0 || !claim(used, r.gpio, label + " output", err)) return false;
+    if (r.gpio < 0) { err = label + ": output GPIO is not set"; return false; }
+    if (!claim(used, r.gpio, label + " output", err)) return false;
     if (r.buttonGpio >= 0 && !claim(used, r.buttonGpio, label + " button", err)) return false;
     if (r.schedule.enabled && (!validTime(r.schedule.on) || !validTime(r.schedule.off) ||
                                strcmp(r.schedule.on, r.schedule.off) == 0)) {
@@ -54,8 +57,8 @@ bool validate(const AppConfig& cfg, String& err, std::vector<String>& warnings) 
       return false;
     }
     if (r.humanDetector.enabled) {
-      if (r.humanDetector.gpio < 0 ||
-          !claim(used, r.humanDetector.gpio, "PIR input", err, true)) return false;
+      if (r.humanDetector.gpio < 0) { err = label + ": PIR GPIO is not set"; return false; }
+      if (!claim(used, r.humanDetector.gpio, "PIR input", err, true)) return false;
       if (r.humanDetector.holdSec < 1 || r.humanDetector.holdSec > 3600) {
         err = label + ": PIR hold time must be 1..3600 seconds";
         return false;
