@@ -914,7 +914,7 @@ pre {
     const cb = $("#" + owner);
     if (!cb || !cb.checked) return false;
     if (sel.dataset.role === "pir") {
-      const relayNumber = owner.match(/^r(\\d+)pir$/);
+      const relayNumber = owner.match(/^r(\d+)pir$/);
       return !!relayNumber && $("#r" + relayNumber[1] + "en").checked;
     }
     return true;
