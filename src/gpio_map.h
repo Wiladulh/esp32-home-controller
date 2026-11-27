@@ -13,7 +13,7 @@ size_t allowedCount();
 int8_t allowedPin(size_t index);
 bool isAllowed(int8_t gpio);
 
-// Validate a whole configuration. Returns false and fills `err` on the first hard error.
+// Validate configured GPIO roles. Shared PIR inputs are allowed; conflicting roles are rejected.
 // `warnings` is kept for future soft checks.
 bool validate(const AppConfig& cfg, String& err, std::vector<String>& warnings);
 
