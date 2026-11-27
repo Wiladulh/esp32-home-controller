@@ -13,6 +13,7 @@
 #include "relay.h"
 #include "fan.h"
 #include "sensor.h"
+#include "presence.h"
 #include "itag.h"
 #include "mqtt.h"
 
@@ -254,6 +255,15 @@ String statusJson() {
     o["index"] = i + 1;
     o["name"] = cfg.relays[i].name[0] ? String(cfg.relays[i].name) : String("Relay ") + String(i + 1);
     o["on"] = Relay::get(i);
+    JsonObject schedule = o["schedule"].to<JsonObject>();
+    schedule["enabled"] = cfg.relays[i].schedule.enabled;
+    schedule["on"] = cfg.relays[i].schedule.on;
+    schedule["off"] = cfg.relays[i].schedule.off;
+    JsonObject detector = o["humanDetector"].to<JsonObject>();
+    detector["enabled"] = cfg.relays[i].humanDetector.enabled;
+    detector["gpio"] = cfg.relays[i].humanDetector.gpio;
+    detector["holdSec"] = cfg.relays[i].humanDetector.holdSec;
+    detector["detected"] = Presence::detected(i);
   }
 
   if (cfg.fan.enabled) {

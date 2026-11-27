@@ -28,6 +28,14 @@ void writeRelay(JsonObject o, const RelayCfg& r, uint8_t index) {
   o["gpio"] = r.gpio;
   o["button"] = r.buttonGpio;
   o["activeHigh"] = r.activeHigh;
+  JsonObject schedule = o["schedule"].to<JsonObject>();
+  schedule["enabled"] = r.schedule.enabled;
+  schedule["on"] = r.schedule.on;
+  schedule["off"] = r.schedule.off;
+  JsonObject detector = o["humanDetector"].to<JsonObject>();
+  detector["enabled"] = r.humanDetector.enabled;
+  detector["gpio"] = r.humanDetector.gpio;
+  detector["holdSec"] = r.humanDetector.holdSec;
 }
 
 bool checkString(JsonVariantConst value, size_t capacity, const char* field, String& err) {
@@ -75,6 +83,18 @@ void readRelay(JsonObjectConst o, RelayCfg& r) {
   r.gpio = o["gpio"] | r.gpio;
   r.buttonGpio = o["button"] | r.buttonGpio;
   r.activeHigh = o["activeHigh"] | r.activeHigh;
+  JsonObjectConst schedule = o["schedule"];
+  if (!schedule.isNull()) {
+    r.schedule.enabled = schedule["enabled"] | r.schedule.enabled;
+    if (schedule["on"].is<const char*>()) copyStr(r.schedule.on, sizeof(r.schedule.on), schedule["on"]);
+    if (schedule["off"].is<const char*>()) copyStr(r.schedule.off, sizeof(r.schedule.off), schedule["off"]);
+  }
+  JsonObjectConst detector = o["humanDetector"];
+  if (!detector.isNull()) {
+    r.humanDetector.enabled = detector["enabled"] | r.humanDetector.enabled;
+    r.humanDetector.gpio = detector["gpio"] | r.humanDetector.gpio;
+    r.humanDetector.holdSec = detector["holdSec"] | r.humanDetector.holdSec;
+  }
 }
 }  // namespace
 
@@ -301,7 +321,15 @@ bool fromJson(const char* json, AppConfig& out, String& err) {
           !checkString(item["name"], NAME_LEN, "relay.name", err) ||
           !checkInt(item["gpio"], -1, 39, "relay.gpio", err) ||
           !checkInt(item["button"], -1, 39, "relay.button", err) ||
-          !checkBool(item["activeHigh"], "relay.activeHigh", err)) return false;
+          !checkBool(item["activeHigh"], "relay.activeHigh", err) ||
+          !checkObject(item["schedule"], "relay.schedule", err) ||
+          !checkObject(item["humanDetector"], "relay.humanDetector", err) ||
+          !checkBool(item["schedule"]["enabled"], "relay.schedule.enabled", err) ||
+          !checkString(item["schedule"]["on"], 6, "relay.schedule.on", err) ||
+          !checkString(item["schedule"]["off"], 6, "relay.schedule.off", err) ||
+          !checkBool(item["humanDetector"]["enabled"], "relay.humanDetector.enabled", err) ||
+          !checkInt(item["humanDetector"]["gpio"], -1, 39, "relay.humanDetector.gpio", err) ||
+          !checkInt(item["humanDetector"]["holdSec"], 1, 3600, "relay.humanDetector.holdSec", err)) return false;
     }
   }
 

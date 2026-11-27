@@ -2,6 +2,8 @@
 #include <freertos/FreeRTOS.h>
 #include <freertos/semphr.h>
 #include "config.h"
+#include "relay_policy.h"
+#include <time.h>
 
 namespace {
 constexpr uint32_t DEBOUNCE_MS = 40;
@@ -9,10 +11,12 @@ constexpr uint32_t DEBOUNCE_MS = 40;
 struct State {
   bool on = false;
   bool enabled = false;
+  bool manualOverride = false;
+  time_t manualOverrideAt = 0;
   int8_t gpio = -1;
   int8_t button = -1;
   bool activeHigh = true;
-  bool lastRaw = true;       // INPUT_PULLUP: HIGH = released
+  bool lastRaw = true;
   bool stable = true;
   uint32_t lastChangeMs = 0;
 };
@@ -24,7 +28,7 @@ SemaphoreHandle_t stateMutex = nullptr;
 void drive(State& s, bool on) {
   s.on = on;
   if (s.gpio < 0) return;
-  bool level = (on == s.activeHigh);
+  const bool level = (on == s.activeHigh);
   digitalWrite(s.gpio, level ? HIGH : LOW);
 }
 }  // namespace
@@ -77,6 +81,8 @@ void tick() {
         state.stable = raw;
         if (state.stable == LOW) {
           newState = !state.on;
+          state.manualOverride = true;
+          state.manualOverrideAt = time(nullptr);
           drive(state, newState);
           cb = changeCb;
           changed = true;
@@ -94,6 +100,8 @@ bool set(uint8_t index, bool on) {
   bool changed = false;
   xSemaphoreTake(stateMutex, portMAX_DELAY);
   if (st[index].enabled) {
+    st[index].manualOverride = true;
+    st[index].manualOverrideAt = time(nullptr);
     changed = st[index].on != on;
     if (changed) {
       drive(st[index], on);
@@ -104,6 +112,36 @@ bool set(uint8_t index, bool on) {
   xSemaphoreGive(stateMutex);
   if (changed && cb) cb(index, on);
   return enabled;
+}
+
+bool setAutomatic(uint8_t index, bool on) {
+  if (index >= MAX_RELAYS || !stateMutex) return false;
+  ChangeCb cb;
+  bool changed = false;
+  xSemaphoreTake(stateMutex, portMAX_DELAY);
+  changed = RelayPolicy::shouldApplyAutomatic(st[index].enabled,
+                                             st[index].manualOverride,
+                                             st[index].on, on);
+  if (changed) {
+    drive(st[index], on);
+    cb = changeCb;
+  }
+  const bool enabled = st[index].enabled;
+  xSemaphoreGive(stateMutex);
+  if (changed && cb) cb(index, on);
+  return enabled;
+}
+
+void clearManualOverrideAtBoundary(uint8_t index, time_t boundary) {
+  if (index >= MAX_RELAYS || !stateMutex) return;
+  xSemaphoreTake(stateMutex, portMAX_DELAY);
+  State& state = st[index];
+  if (RelayPolicy::shouldClearManualOverride(state.manualOverride,
+                                             state.manualOverrideAt, boundary)) {
+    state.manualOverride = false;
+    state.manualOverrideAt = 0;
+  }
+  xSemaphoreGive(stateMutex);
 }
 
 bool get(uint8_t index) {

@@ -10,12 +10,26 @@ constexpr size_t SECRET_LEN = 64;
 // Sensor types supported in the GPIO map
 enum class SensorType : uint8_t { None = 0, Dht22 = 1, Ds18b20 = 2 };
 
+struct RelayScheduleCfg {
+  bool enabled = false;
+  char on[6] = "18:00";
+  char off[6] = "06:00";
+};
+
+struct HumanDetectorCfg {
+  bool enabled = false;
+  int8_t gpio = -1;
+  uint16_t holdSec = 60;
+};
+
 struct RelayCfg {
   bool enabled = false;
   char name[NAME_LEN] = "";
-  int8_t gpio = -1;          // relay output pin
-  int8_t buttonGpio = -1;    // mandatory momentary button (toggle) for this relay
-  bool activeHigh = true;    // relay logic level for ON
+  int8_t gpio = -1;
+  int8_t buttonGpio = -1;    // optional momentary button
+  bool activeHigh = true;
+  RelayScheduleCfg schedule;
+  HumanDetectorCfg humanDetector;
 };
 
 struct FanCfg {

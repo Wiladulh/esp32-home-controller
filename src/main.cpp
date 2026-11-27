@@ -12,6 +12,8 @@
 #include "relay.h"
 #include "fan.h"
 #include "sensor.h"
+#include "presence.h"
+#include "schedule.h"
 #include "itag.h"
 #include "mqtt.h"
 #include "web.h"
@@ -168,6 +170,8 @@ void setup() {
     Relay::begin();
     Fan::begin();
     Sensor::begin();
+    Presence::begin();
+    Schedule::begin();
     ITag::begin(onClicks);
   }
   Relay::onChange(onRelayChange);
@@ -194,6 +198,8 @@ void loop() {
     Relay::tick();
     Fan::tick();
     Sensor::tick();
+    Presence::tick();
+    Schedule::tick();
     ITag::tick();
   }
   Web::tick();

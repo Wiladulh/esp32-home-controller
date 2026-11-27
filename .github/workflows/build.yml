@@ -2,7 +2,11 @@ name: build-firmware
 
 on:
   push:
+    branches:
+      - main
   pull_request:
+    branches:
+      - main
   workflow_dispatch:
 
 jobs:
@@ -11,6 +15,13 @@ jobs:
     timeout-minutes: 45
     steps:
       - uses: actions/checkout@v4
+
+      - name: Test schedule behavior (host)
+        run: |
+          g++ -std=c++17 -Wall -Wextra -Werror -Isrc \
+            src/schedule_logic.cpp test/schedule_behavior.cpp \
+            -o /tmp/schedule-behavior
+          /tmp/schedule-behavior
 
       - uses: actions/setup-python@v5
         with:
