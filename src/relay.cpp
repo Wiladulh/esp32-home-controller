@@ -2,6 +2,7 @@
 #include <freertos/FreeRTOS.h>
 #include <freertos/semphr.h>
 #include "config.h"
+#include <time.h>
 
 namespace {
 constexpr uint32_t DEBOUNCE_MS = 40;
@@ -10,6 +11,7 @@ struct State {
   bool on = false;
   bool enabled = false;
   bool manualOverride = false;
+  time_t manualOverrideAt = 0;
   int8_t gpio = -1;
   int8_t button = -1;
   bool activeHigh = true;
@@ -79,6 +81,7 @@ void tick() {
         if (state.stable == LOW) {
           newState = !state.on;
           state.manualOverride = true;
+          state.manualOverrideAt = time(nullptr);
           drive(state, newState);
           cb = changeCb;
           changed = true;
@@ -97,6 +100,7 @@ bool set(uint8_t index, bool on) {
   xSemaphoreTake(stateMutex, portMAX_DELAY);
   if (st[index].enabled) {
     st[index].manualOverride = true;
+    st[index].manualOverrideAt = time(nullptr);
     changed = st[index].on != on;
     if (changed) {
       drive(st[index], on);
@@ -127,10 +131,14 @@ bool setAutomatic(uint8_t index, bool on) {
   return enabled;
 }
 
-void clearManualOverride(uint8_t index) {
+void clearManualOverrideAtBoundary(uint8_t index, time_t boundary) {
   if (index >= MAX_RELAYS || !stateMutex) return;
   xSemaphoreTake(stateMutex, portMAX_DELAY);
-  st[index].manualOverride = false;
+  State& state = st[index];
+  if (state.manualOverride && (state.manualOverrideAt == 0 || state.manualOverrideAt < boundary)) {
+    state.manualOverride = false;
+    state.manualOverrideAt = 0;
+  }
   xSemaphoreGive(stateMutex);
 }
 
