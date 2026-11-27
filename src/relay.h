@@ -11,6 +11,7 @@ void begin();
 // Non-blocking. Debounces buttons and toggles relays on press.
 void tick();
 bool set(uint8_t index, bool on);      // index 0..7
+bool setAutomatic(uint8_t index, bool on);
 bool get(uint8_t index);
 bool isEnabled(uint8_t index);
 void onChange(ChangeCb cb);
