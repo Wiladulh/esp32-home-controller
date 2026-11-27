@@ -9,10 +9,11 @@ constexpr uint32_t DEBOUNCE_MS = 40;
 struct State {
   bool on = false;
   bool enabled = false;
+  bool manualOverride = false;
   int8_t gpio = -1;
   int8_t button = -1;
   bool activeHigh = true;
-  bool lastRaw = true;       // INPUT_PULLUP: HIGH = released
+  bool lastRaw = true;
   bool stable = true;
   uint32_t lastChangeMs = 0;
 };
@@ -24,7 +25,7 @@ SemaphoreHandle_t stateMutex = nullptr;
 void drive(State& s, bool on) {
   s.on = on;
   if (s.gpio < 0) return;
-  bool level = (on == s.activeHigh);
+  const bool level = (on == s.activeHigh);
   digitalWrite(s.gpio, level ? HIGH : LOW);
 }
 }  // namespace
@@ -77,6 +78,7 @@ void tick() {
         state.stable = raw;
         if (state.stable == LOW) {
           newState = !state.on;
+          state.manualOverride = true;
           drive(state, newState);
           cb = changeCb;
           changed = true;
@@ -94,6 +96,7 @@ bool set(uint8_t index, bool on) {
   bool changed = false;
   xSemaphoreTake(stateMutex, portMAX_DELAY);
   if (st[index].enabled) {
+    st[index].manualOverride = true;
     changed = st[index].on != on;
     if (changed) {
       drive(st[index], on);
@@ -111,14 +114,24 @@ bool setAutomatic(uint8_t index, bool on) {
   ChangeCb cb;
   bool changed = false;
   xSemaphoreTake(stateMutex, portMAX_DELAY);
-  if (st[index].enabled) {
+  if (st[index].enabled && !st[index].manualOverride) {
     changed = st[index].on != on;
-    if (changed) { drive(st[index], on); cb = changeCb; }
+    if (changed) {
+      drive(st[index], on);
+      cb = changeCb;
+    }
   }
   const bool enabled = st[index].enabled;
   xSemaphoreGive(stateMutex);
   if (changed && cb) cb(index, on);
   return enabled;
+}
+
+void clearManualOverride(uint8_t index) {
+  if (index >= MAX_RELAYS || !stateMutex) return;
+  xSemaphoreTake(stateMutex, portMAX_DELAY);
+  st[index].manualOverride = false;
+  xSemaphoreGive(stateMutex);
 }
 
 bool get(uint8_t index) {
