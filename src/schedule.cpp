@@ -3,7 +3,6 @@
 #include "presence.h"
 #include "relay.h"
 #include <time.h>
-#include <string.h>
 
 namespace {
 bool scheduleActive(const RelayScheduleCfg& cfg, int minuteOfDay) {
@@ -14,15 +13,22 @@ bool scheduleActive(const RelayScheduleCfg& cfg, int minuteOfDay) {
   if (on < off) return minuteOfDay >= on && minuteOfDay < off;
   return minuteOfDay >= on || minuteOfDay < off;
 }
-int lastMinute = -1;
+
+bool lastScheduled[MAX_RELAYS] = {};
+bool scheduledKnown[MAX_RELAYS] = {};
 bool lastPresence[MAX_RELAYS] = {};
+bool presenceKnown[MAX_RELAYS] = {};
 bool initialized = false;
 }
 
 namespace Schedule {
 void begin() {
-  lastMinute = -1;
-  memset(lastPresence, 0, sizeof(lastPresence));
+  for (uint8_t i = 0; i < MAX_RELAYS; ++i) {
+    lastScheduled[i] = false;
+    scheduledKnown[i] = false;
+    lastPresence[i] = false;
+    presenceKnown[i] = false;
+  }
   initialized = true;
 }
 
@@ -33,19 +39,28 @@ void tick() {
   struct tm local {};
   if (!localtime_r(&now, &local)) return;
   const int minuteOfDay = local.tm_hour * 60 + local.tm_min;
-  const bool newMinute = minuteOfDay != lastMinute;
   const AppConfig cfg = Config::get();
+
   for (uint8_t i = 0; i < MAX_RELAYS; ++i) {
     const auto& relay = cfg.relays[i];
     if (!relay.enabled || (!relay.schedule.enabled && !relay.humanDetector.enabled)) continue;
-    const bool hasPresence = relay.humanDetector.enabled;
-    const bool presenceNow = hasPresence && Presence::detected(i);
-    if (!newMinute && presenceNow == lastPresence[i]) continue;
+
     const bool scheduled = relay.schedule.enabled && scheduleActive(relay.schedule, minuteOfDay);
-    const bool desired = scheduled || presenceNow;
-    Relay::setAutomatic(i, desired);
+    const bool presenceNow = relay.humanDetector.enabled && Presence::detected(i);
+    const bool scheduleBoundary = relay.schedule.enabled && scheduledKnown[i] &&
+                                  scheduled != lastScheduled[i];
+    const bool presenceChanged = !presenceKnown[i] || presenceNow != lastPresence[i];
+
+    if (scheduleBoundary) Relay::clearManualOverride(i);
+
+    if (!scheduledKnown[i] || scheduleBoundary || presenceChanged) {
+      Relay::setAutomatic(i, scheduled || presenceNow);
+    }
+
+    lastScheduled[i] = scheduled;
+    scheduledKnown[i] = true;
     lastPresence[i] = presenceNow;
+    presenceKnown[i] = true;
   }
-  lastMinute = minuteOfDay;
 }
 }
