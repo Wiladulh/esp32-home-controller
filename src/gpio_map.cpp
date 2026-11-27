@@ -70,13 +70,21 @@ bool validate(const AppConfig& cfg, String& err, std::vector<String>& warnings) 
       err = "Fan: max speed must be 2 or 3"; return false;
     }
     for (uint8_t s = 0; s < cfg.fan.maxSpeed; s++) {
-      if (cfg.fan.speedGpio[s] < 0 ||
-          !claim(used, cfg.fan.speedGpio[s], "Fan speed " + String(s + 1), err)) return false;
+      if (cfg.fan.speedGpio[s] < 0) {
+        err = "Fan speed " + String(s + 1) + ": GPIO is not set";
+        return false;
+      }
+      if (!claim(used, cfg.fan.speedGpio[s], "Fan speed " + String(s + 1), err)) return false;
     }
   }
   if (cfg.sensor.type != SensorType::None) {
-    if (cfg.sensor.gpio < 0 || !claim(used, cfg.sensor.gpio, "Temperature sensor", err)) return false;
+    if (cfg.sensor.gpio < 0) {
+      err = "Temperature sensor: GPIO is not set";
+      return false;
+    }
+    if (!claim(used, cfg.sensor.gpio, "Temperature sensor", err)) return false;
   }
   return true;
 }
+
 }
