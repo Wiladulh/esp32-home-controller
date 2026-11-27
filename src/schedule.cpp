@@ -44,21 +44,25 @@ void begin() {
 
 void tick() {
   if (!initialized) begin();
+
   const time_t now = time(nullptr);
-  if (now < 1700000000) return;
   struct tm local {};
-  if (!localtime_r(&now, &local)) return;
-  const int minuteOfDay = local.tm_hour * 60 + local.tm_min;
+  const bool timeValid = now >= 1700000000 && localtime_r(&now, &local);
+  const int minuteOfDay = timeValid ? local.tm_hour * 60 + local.tm_min : 0;
   const AppConfig cfg = Config::get();
 
   for (uint8_t i = 0; i < MAX_RELAYS; ++i) {
     const auto& relay = cfg.relays[i];
     if (!relay.enabled || (!relay.schedule.enabled && !relay.humanDetector.enabled)) continue;
 
-    const bool scheduled = relay.schedule.enabled && scheduleActive(relay.schedule, minuteOfDay);
+    const bool scheduled = relay.schedule.enabled &&
+                           (timeValid ? scheduleActive(relay.schedule, minuteOfDay)
+                                      : (scheduledKnown[i] && lastScheduled[i]));
     const bool presenceNow = relay.humanDetector.enabled && Presence::detected(i);
-    const bool scheduleBoundary = relay.schedule.enabled && scheduledKnown[i] &&
+    const bool scheduleBoundary = timeValid && relay.schedule.enabled && scheduledKnown[i] &&
                                   scheduled != lastScheduled[i];
+    const bool scheduleStateChanged = timeValid && relay.schedule.enabled &&
+                                      (!scheduledKnown[i] || scheduled != lastScheduled[i]);
     const bool presenceChanged = !presenceKnown[i] || presenceNow != lastPresence[i];
 
     if (scheduleBoundary) {
@@ -66,12 +70,14 @@ void tick() {
       Relay::clearManualOverrideAtBoundary(i, boundary);
     }
 
-    if (!scheduledKnown[i] || scheduleBoundary || presenceChanged) {
+    if (scheduleStateChanged || presenceChanged) {
       Relay::setAutomatic(i, scheduled || presenceNow);
     }
 
-    lastScheduled[i] = scheduled;
-    scheduledKnown[i] = true;
+    if (timeValid && relay.schedule.enabled) {
+      lastScheduled[i] = scheduled;
+      scheduledKnown[i] = true;
+    }
     lastPresence[i] = presenceNow;
     presenceKnown[i] = true;
   }
