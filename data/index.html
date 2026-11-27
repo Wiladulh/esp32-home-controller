@@ -29,7 +29,7 @@
   --err-bg: #fef2f2;
   --shadow-sm: 0 1px 2px 0 rgba(0, 0, 0, 0.05);
   --shadow-md: 0 4px 6px -1px rgba(0, 0, 0, 0.07), 0 2px 4px -2px rgba(0, 0, 0, 0.05);
-  --radius: 16px;
+  --radius: 14px;
 }
 
 @media (prefers-color-scheme: dark) {
@@ -91,45 +91,44 @@ html, body { margin: 0; padding: 0; }
 body {
   background: var(--bg);
   color: var(--text);
-  font: 15px/1.5 system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+  font: 14px/1.45 system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
   min-height: 100vh;
   overflow-x: hidden;
   transition: background-color 0.2s, color 0.2s;
 }
 
-/* Header & Navigation */
 header {
   position: sticky; top: 0; z-index: 20;
-  background: rgba(255, 255, 255, 0.85);
+  background: rgba(255, 255, 255, 0.88);
   backdrop-filter: blur(12px);
   -webkit-backdrop-filter: blur(12px);
   border-bottom: 1px solid var(--line);
 }
 @media (prefers-color-scheme: dark) {
-  :root:not([data-theme="light"]) header { background: rgba(17, 24, 39, 0.85); }
+  :root:not([data-theme="light"]) header { background: rgba(17, 24, 39, 0.88); }
 }
-:root[data-theme="dark"] header { background: rgba(17, 24, 39, 0.85); }
+:root[data-theme="dark"] header { background: rgba(17, 24, 39, 0.88); }
 
 .bar {
-  max-width: 960px; margin: 0 auto; padding: 12px 16px;
-  display: flex; align-items: center; justify-content: space-between; gap: 12px;
+  max-width: 960px; margin: 0 auto; padding: 8px 14px;
+  display: flex; align-items: center; justify-content: space-between; gap: 10px;
 }
-.brand { display: flex; align-items: center; gap: 10px; }
+.brand { display: flex; align-items: center; gap: 8px; }
 .brand-icon {
-  width: 34px; height: 34px; border-radius: 10px;
+  width: 30px; height: 30px; border-radius: 8px;
   background: linear-gradient(135deg, var(--accent), #6366f1);
   color: #fff; display: flex; align-items: center; justify-content: center;
-  box-shadow: 0 2px 6px rgba(37, 99, 235, 0.3);
+  box-shadow: 0 2px 5px rgba(37, 99, 235, 0.3);
 }
-.brand h1 { font-size: 17px; font-weight: 700; margin: 0; letter-spacing: -0.01em; }
-.nav-group { display: flex; align-items: center; gap: 8px; }
+.brand h1 { font-size: 15px; font-weight: 700; margin: 0; letter-spacing: -0.01em; }
+.nav-group { display: flex; align-items: center; gap: 6px; }
 .tabs {
-  display: flex; background: var(--bg); padding: 4px;
-  border-radius: 12px; border: 1px solid var(--line);
+  display: flex; background: var(--bg); padding: 3px;
+  border-radius: 10px; border: 1px solid var(--line);
 }
 .tab {
-  font: inherit; font-size: 13px; font-weight: 600;
-  padding: 6px 14px; min-height: 34px; border-radius: 8px;
+  font: inherit; font-size: 12.5px; font-weight: 600;
+  padding: 5px 12px; min-height: 28px; border-radius: 7px;
   border: none; background: transparent; color: var(--muted);
   cursor: pointer; transition: all 0.15s ease;
 }
@@ -138,79 +137,90 @@ header {
   box-shadow: var(--shadow-sm);
 }
 .icon-btn {
-  width: 40px; height: 40px; min-height: 40px; padding: 0;
-  border-radius: 10px; border: 1px solid var(--line);
+  width: 34px; height: 34px; min-height: 34px; padding: 0;
+  border-radius: 9px; border: 1px solid var(--line);
   background: var(--surface); color: var(--text);
   display: inline-flex; align-items: center; justify-content: center;
   cursor: pointer; transition: background 0.15s;
 }
 .icon-btn:hover { background: var(--surface-sub); }
 
-main { max-width: 960px; margin: 0 auto; padding: 18px 16px 40px; }
+main { max-width: 960px; margin: 0 auto; padding: 12px 14px 80px; }
 .hidden { display: none !important; }
 
-/* Cards */
+.subtabs {
+  display: flex; gap: 6px; overflow-x: auto; padding-bottom: 4px; margin-bottom: 12px;
+  scrollbar-width: none;
+}
+.subtabs::-webkit-scrollbar { display: none; }
+.subtab {
+  font: inherit; font-size: 12.5px; font-weight: 600; white-space: nowrap;
+  padding: 7px 12px; border-radius: 9px; border: 1px solid var(--line);
+  background: var(--surface); color: var(--muted); cursor: pointer;
+  transition: all 0.15s ease;
+}
+.subtab.active {
+  background: var(--accent); color: #fff; border-color: var(--accent);
+}
+
 .card {
   background: var(--surface); border: 1px solid var(--line);
-  border-radius: var(--radius); padding: 18px; margin-bottom: 16px;
+  border-radius: var(--radius); padding: 13px 14px; margin-bottom: 12px;
   box-shadow: var(--shadow-sm);
 }
 .card-header {
   display: flex; align-items: center; justify-content: space-between;
-  margin-bottom: 14px; gap: 8px;
+  margin-bottom: 10px; gap: 8px;
 }
 .card h2 {
-  font-size: 14px; font-weight: 700; text-transform: uppercase;
+  font-size: 12px; font-weight: 700; text-transform: uppercase;
   letter-spacing: 0.04em; color: var(--muted); margin: 0;
 }
-.subcard {
-  border: 1px solid var(--line); border-radius: 12px; padding: 14px;
-  background: var(--surface-sub); transition: border-color 0.2s;
-}
-.subcard.enabled { border-color: rgba(37, 99, 235, 0.35); }
-.muted { color: var(--muted); font-size: 13px; }
+.muted { color: var(--muted); font-size: 12px; }
 
-/* Status Telemetry Grid */
 .stat-grid {
-  display: grid; gap: 12px;
+  display: grid; gap: 7px;
   grid-template-columns: repeat(2, 1fr);
 }
 @media (min-width: 640px) {
   .stat-grid { grid-template-columns: repeat(4, 1fr); }
 }
 .stat {
-  border: 1px solid var(--line); border-radius: 14px; padding: 14px;
+  border: 1px solid var(--line); border-radius: 10px; padding: 7px 10px;
   background: var(--surface-sub);
-  display: flex; flex-direction: column; gap: 6px;
+  display: flex; align-items: center; justify-content: space-between; gap: 6px;
 }
 .stat-top {
-  display: flex; align-items: center; justify-content: space-between;
-  color: var(--muted); font-size: 12px; font-weight: 600;
+  color: var(--muted); font-size: 11.5px; font-weight: 600;
+  white-space: nowrap;
 }
 .stat-val {
-  font-size: 18px; font-weight: 700; display: flex; align-items: center; gap: 8px;
+  font-size: 13px; font-weight: 700; display: flex; align-items: center; gap: 5px;
+  white-space: nowrap;
 }
 .dot {
-  width: 9px; height: 9px; border-radius: 50%;
+  width: 7px; height: 7px; border-radius: 50%;
   background: var(--off); flex-shrink: 0;
 }
 .dot.ok {
   background: var(--on);
-  box-shadow: 0 0 0 3px var(--on-bg);
+  box-shadow: 0 0 0 2px var(--on-bg);
 }
 
-/* Relay Tiles */
 .relay-grid {
-  display: grid; gap: 12px;
+  display: grid; gap: 8px;
   grid-template-columns: repeat(2, 1fr);
 }
-@media (min-width: 640px) {
+@media (min-width: 560px) {
+  .relay-grid { grid-template-columns: repeat(3, 1fr); }
+}
+@media (min-width: 820px) {
   .relay-grid { grid-template-columns: repeat(4, 1fr); }
 }
 .relay {
   position: relative;
-  min-height: 112px; padding: 14px;
-  border-radius: 14px; border: 1px solid var(--line);
+  min-height: 76px; padding: 10px 11px;
+  border-radius: 12px; border: 1px solid var(--line);
   background: var(--surface-sub); color: var(--text);
   display: flex; flex-direction: column; justify-content: space-between; align-items: flex-start;
   text-align: left; cursor: pointer;
@@ -221,27 +231,29 @@ main { max-width: 960px; margin: 0 auto; padding: 18px 16px 40px; }
   width: 100%; display: flex; align-items: center; justify-content: space-between;
 }
 .relay-icon {
-  width: 34px; height: 34px; border-radius: 10px;
+  width: 26px; height: 26px; border-radius: 7px;
   background: var(--surface); border: 1px solid var(--line);
   color: var(--muted); display: flex; align-items: center; justify-content: center;
   transition: all 0.2s;
 }
 .relay-badge {
-  font-size: 11px; font-weight: 700; letter-spacing: 0.04em;
-  padding: 3px 8px; border-radius: 99px;
+  font-size: 10px; font-weight: 700; letter-spacing: 0.04em;
+  padding: 2px 7px; border-radius: 99px;
   background: var(--line); color: var(--muted);
   transition: all 0.2s;
 }
 .relay-name {
-  font-size: 15px; font-weight: 600; line-height: 1.3;
-  word-break: break-word; margin-top: 10px;
+  font-size: 13.5px; font-weight: 600; line-height: 1.25;
+  word-break: break-word; margin-top: 6px;
 }
-
-/* Active Relay State */
+.relay-meta {
+  display: flex; gap: 5px; flex-wrap: wrap; margin-top: 3px;
+  font-size: 10px; color: var(--muted); font-weight: 600;
+}
 .relay.on {
   background: var(--on-bg);
   border-color: var(--on-border);
-  box-shadow: 0 4px 12px rgba(16, 185, 129, 0.12);
+  box-shadow: 0 2px 8px rgba(16, 185, 129, 0.12);
 }
 .relay.on .relay-icon {
   background: var(--on); border-color: var(--on); color: #fff;
@@ -250,33 +262,65 @@ main { max-width: 960px; margin: 0 auto; padding: 18px 16px 40px; }
   background: var(--on); color: #fff;
 }
 
-/* Fan Speed Selector */
-.speeds {
-  display: grid; gap: 10px;
-  grid-template-columns: repeat(2, 1fr);
+details.relay-acc {
+  border: 1px solid var(--line); border-radius: 11px;
+  background: var(--surface-sub); overflow: hidden;
+  transition: border-color 0.2s;
 }
-@media (min-width: 480px) {
-  .speeds { grid-template-columns: repeat(4, 1fr); }
+details.relay-acc.enabled { border-color: rgba(37, 99, 235, 0.4); }
+details.relay-acc summary {
+  list-style: none; padding: 10px 12px; cursor: pointer;
+  display: flex; align-items: center; justify-content: space-between; gap: 8px;
+  user-select: none; font-weight: 600; font-size: 13px;
+}
+details.relay-acc summary::-webkit-details-marker { display: none; }
+.acc-left { display: flex; align-items: center; gap: 7px; min-width: 0; }
+.acc-title { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.acc-badges { display: flex; align-items: center; gap: 4px; flex-shrink: 0; }
+.pill {
+  font-size: 10px; font-weight: 700; padding: 2px 6px; border-radius: 99px;
+  background: var(--line); color: var(--muted);
+}
+.pill.on { background: var(--on-bg); color: var(--on); border: 1px solid var(--on-border); }
+.pill.info { background: rgba(37, 99, 235, 0.12); color: var(--accent); }
+.acc-chevron { transition: transform 0.2s; color: var(--muted); flex-shrink: 0; }
+details.relay-acc[open] .acc-chevron { transform: rotate(180deg); }
+.acc-body {
+  padding: 10px 12px 12px; border-top: 1px solid var(--line);
+  background: var(--surface);
+}
+
+.feat-box {
+  margin-top: 9px; padding: 8px 10px; border-radius: 9px;
+  border: 1px dashed var(--line); background: var(--surface-sub);
+}
+.feat-head {
+  display: flex; align-items: center; justify-content: space-between; gap: 8px;
+}
+.feat-fields { margin-top: 7px; padding-top: 7px; border-top: 1px solid var(--line); }
+
+.speeds {
+  display: grid; gap: 8px;
+  grid-template-columns: repeat(4, 1fr);
 }
 .speeds button {
-  min-height: 58px; font-size: 15px; font-weight: 600;
-  border-radius: 12px; border: 1px solid var(--line);
+  min-height: 42px; font-size: 13px; font-weight: 600;
+  border-radius: 10px; border: 1px solid var(--line);
   background: var(--surface-sub); color: var(--text);
-  display: flex; align-items: center; justify-content: center; gap: 6px;
-  transition: all 0.15s;
+  display: flex; align-items: center; justify-content: center;
+  cursor: pointer; transition: all 0.15s;
 }
 .speeds button.active {
   background: var(--accent); color: #fff; border-color: var(--accent);
-  box-shadow: 0 4px 10px rgba(37, 99, 235, 0.25);
+  box-shadow: 0 3px 8px rgba(37, 99, 235, 0.25);
 }
 
-/* Buttons & Inputs */
 button.btn {
-  font: inherit; font-weight: 600; font-size: 14px;
-  border: 1px solid transparent; border-radius: 10px;
-  padding: 10px 18px; min-height: 44px; cursor: pointer;
+  font: inherit; font-weight: 600; font-size: 13px;
+  border: 1px solid transparent; border-radius: 9px;
+  padding: 8px 14px; min-height: 38px; cursor: pointer;
   background: var(--accent); color: var(--accent-text);
-  display: inline-flex; align-items: center; justify-content: center; gap: 8px;
+  display: inline-flex; align-items: center; justify-content: center; gap: 6px;
   transition: background 0.15s, transform 0.1s;
 }
 button.btn:hover { background: var(--accent-hover); }
@@ -294,61 +338,71 @@ button:focus-visible, input:focus-visible, select:focus-visible {
   outline: 2px solid var(--accent); outline-offset: 2px;
 }
 
-label { display: block; font-size: 13px; font-weight: 600; color: var(--muted); margin: 12px 0 5px; }
+label { display: block; font-size: 11.5px; font-weight: 600; color: var(--muted); margin: 7px 0 3px; }
 input, select {
-  width: 100%; font: inherit; font-size: 14px; color: var(--text); background: var(--input);
-  border: 1px solid var(--line); border-radius: 10px; padding: 10px 12px; min-height: 44px;
+  width: 100%; font: inherit; font-size: 13px; color: var(--text); background: var(--input);
+  border: 1px solid var(--line); border-radius: 8px; padding: 6px 10px; min-height: 36px;
   transition: border-color 0.15s;
 }
 input:focus, select:focus { border-color: var(--accent); }
 
-/* Toggle Switch Checkbox */
 .check {
-  display: inline-flex; align-items: center; gap: 10px; margin: 8px 0;
-  color: var(--text); font-size: 14px; font-weight: 600; cursor: pointer;
+  display: inline-flex; align-items: center; gap: 8px; margin: 3px 0;
+  color: var(--text); font-size: 12.5px; font-weight: 600; cursor: pointer;
 }
 .check input[type="checkbox"] {
   appearance: none; -webkit-appearance: none;
-  width: 42px; height: 24px; min-height: 24px; padding: 0;
+  width: 36px; height: 20px; min-height: 20px; padding: 0;
   border-radius: 99px; background: var(--off); border: none;
   position: relative; cursor: pointer; transition: background 0.2s; flex-shrink: 0;
 }
 .check input[type="checkbox"]::after {
-  content: ""; position: absolute; top: 3px; left: 3px;
-  width: 18px; height: 18px; border-radius: 50%; background: #fff;
+  content: ""; position: absolute; top: 2px; left: 2px;
+  width: 16px; height: 16px; border-radius: 50%; background: #fff;
   transition: transform 0.2s; box-shadow: 0 1px 2px rgba(0,0,0,0.2);
 }
 .check input[type="checkbox"]:checked { background: var(--accent); }
-.check input[type="checkbox"]:checked::after { transform: translateX(18px); }
+.check input[type="checkbox"]:checked::after { transform: translateX(16px); }
 
-.row2, .row3 { display: grid; gap: 12px; grid-template-columns: 1fr; }
+.row2-inline {
+  display: grid; gap: 8px; grid-template-columns: 1fr 1fr;
+}
+
+.row2, .row3 { display: grid; gap: 10px; grid-template-columns: 1fr; }
 @media (min-width: 640px) {
   .row2 { grid-template-columns: 1fr 1fr; }
   .row3 { grid-template-columns: 1fr 1fr 1fr; }
 }
-.relay-cfg-grid { display: grid; gap: 12px; grid-template-columns: 1fr; }
+.relay-cfg-grid { display: grid; gap: 9px; grid-template-columns: 1fr; }
 @media (min-width: 768px) {
-  .relay-cfg-grid { grid-template-columns: 1fr 1fr; }
+  .relay-cfg-grid { grid-template-columns: 1fr 1fr; align-items: start; }
 }
 
-.actions { display: flex; gap: 10px; flex-wrap: wrap; margin-top: 14px; }
+.actions { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 10px; }
 pre {
-  background: var(--input); border: 1px solid var(--line); border-radius: 10px;
-  padding: 12px; font-size: 12px; font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
-  overflow-x: auto; max-height: 220px; margin: 12px 0 0;
+  background: var(--input); border: 1px solid var(--line); border-radius: 9px;
+  padding: 10px; font-size: 11.5px; font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  overflow-x: auto; max-height: 180px; margin: 8px 0 0;
   white-space: pre-wrap; word-break: break-all;
 }
-.list { display: grid; gap: 8px; margin-top: 12px; }
+.list { display: grid; gap: 6px; margin-top: 8px; }
 .list .item {
-  display: flex; align-items: center; justify-content: space-between; gap: 10px; flex-wrap: wrap;
-  border: 1px solid var(--line); background: var(--surface-sub); border-radius: 10px; padding: 10px 12px;
-  font-size: 14px;
+  display: flex; align-items: center; justify-content: space-between; gap: 8px; flex-wrap: wrap;
+  border: 1px solid var(--line); background: var(--surface-sub); border-radius: 9px; padding: 8px 10px;
+  font-size: 13px;
 }
 
-/* Alerts & Messages */
+.save-bar {
+  position: sticky; bottom: 10px; z-index: 15;
+  background: var(--surface); border: 1px solid var(--line);
+  border-radius: 12px; padding: 9px 12px;
+  box-shadow: var(--shadow-md);
+  display: flex; align-items: center; justify-content: space-between; gap: 10px; flex-wrap: wrap;
+}
+
 .msg {
-  border-radius: 10px; padding: 12px 14px; margin: 12px 0; display: none;
-  font-size: 14px; font-weight: 500; border: 1px solid var(--line);
+  border-radius: 9px; padding: 9px 12px; margin: 8px 0; display: none;
+  font-size: 12.5px; font-weight: 500; border: 1px solid var(--line);
 }
 .msg.show { display: block; }
 .msg.err { background: var(--err-bg); color: var(--err); border-color: rgba(239, 68, 68, 0.3); }
@@ -356,15 +410,13 @@ pre {
 .msg.warn { background: var(--warn-bg); color: var(--warn); border-color: var(--warn-border); }
 .msg.warn.hidden, .msg.err.hidden { display: none; }
 
-/* Login Card */
-.login-box { max-width: 400px; margin: 24px auto; text-align: center; }
+.login-box { max-width: 360px; margin: 20px auto; text-align: center; }
 .login-box input { text-align: center; font-size: 20px; letter-spacing: 0.3em; font-weight: 700; }
 
-/* Toast */
 .toast {
-  position: fixed; left: 50%; bottom: 24px; transform: translateX(-50%) translateY(10px);
-  background: var(--text); color: var(--bg); padding: 10px 18px; border-radius: 99px;
-  font-size: 14px; font-weight: 600; box-shadow: var(--shadow-md);
+  position: fixed; left: 50%; bottom: 20px; transform: translateX(-50%) translateY(10px);
+  background: var(--text); color: var(--bg); padding: 8px 15px; border-radius: 99px;
+  font-size: 12.5px; font-weight: 600; box-shadow: var(--shadow-md);
   opacity: 0; pointer-events: none; transition: opacity 0.2s, transform 0.2s;
   max-width: calc(100vw - 32px); z-index: 50;
 }
@@ -377,7 +429,7 @@ pre {
   <div class="bar">
     <div class="brand">
       <div class="brand-icon" aria-hidden="true">
-        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2v10"/><path d="M18.4 6.6a9 9 0 1 1-12.77.04"/></svg>
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2v10"/><path d="M18.4 6.6a9 9 0 1 1-12.77.04"/></svg>
       </div>
       <h1>Home Controller</h1>
     </div>
@@ -387,38 +439,33 @@ pre {
         <button class="tab" data-tab="config" aria-pressed="false">Config</button>
       </nav>
       <button class="icon-btn" id="themeBtn" title="Toggle Dark/Light Theme" aria-label="Toggle Theme">
-        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="4"/><path d="M12 2v2"/><path d="M12 20v2"/><path d="m4.93 4.93 1.41 1.41"/><path d="m17.66 17.66 1.41 1.41"/><path d="M2 12h2"/><path d="M20 12h2"/><path d="m6.34 17.66-1.41 1.41"/><path d="m19.07 4.93-1.41 1.41"/></svg>
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="4"/><path d="M12 2v2"/><path d="M12 20v2"/><path d="m4.93 4.93 1.41 1.41"/><path d="m17.66 17.66 1.41 1.41"/><path d="M2 12h2"/><path d="M20 12h2"/><path d="m6.34 17.66-1.41 1.41"/><path d="m19.07 4.93-1.41 1.41"/></svg>
       </button>
     </div>
   </div>
 </header>
 
 <main>
-  <!-- ============ DASHBOARD: no PIN ============ -->
   <section id="dash">
     <div class="msg err" id="linkErr">Device not reachable. Retrying...</div>
 
-    <div class="card">
-      <div class="card-header">
-        <h2>Status</h2>
-        <span class="muted">Live</span>
-      </div>
+    <div class="card" style="padding: 10px 12px;">
       <div class="stat-grid">
         <div class="stat">
-          <div class="stat-top"><span>MQTT</span></div>
-          <div class="stat-val"><span class="dot" id="dotMqtt"></span><span id="stMqtt">-</span></div>
+          <span class="stat-top">MQTT</span>
+          <span class="stat-val"><span class="dot" id="dotMqtt"></span><span id="stMqtt">-</span></span>
         </div>
         <div class="stat">
-          <div class="stat-top"><span>iTag remote</span></div>
-          <div class="stat-val"><span class="dot" id="dotItag"></span><span id="stItag">-</span></div>
+          <span class="stat-top">iTag</span>
+          <span class="stat-val"><span class="dot" id="dotItag"></span><span id="stItag">-</span></span>
         </div>
         <div class="stat">
-          <div class="stat-top"><span>Temperature</span></div>
-          <div class="stat-val" id="stTemp">-</div>
+          <span class="stat-top">Temp</span>
+          <span class="stat-val" id="stTemp">-</span>
         </div>
         <div class="stat">
-          <div class="stat-top"><span>Humidity</span></div>
-          <div class="stat-val" id="stHum">-</div>
+          <span class="stat-top">Humidity</span>
+          <span class="stat-val" id="stHum">-</span>
         </div>
       </div>
     </div>
@@ -441,10 +488,9 @@ pre {
     </div>
   </section>
 
-  <!-- ============ CONFIG: PIN protected ============ -->
   <section id="config" class="hidden">
     <div class="card login-box" id="loginCard">
-      <h2 style="margin-bottom:8px">Enter PIN</h2>
+      <h2 style="margin-bottom:6px">Enter PIN</h2>
       <p class="muted" style="margin-top:0">PIN (6 digits)</p>
       <form id="loginForm" autocomplete="off">
         <input id="pinIn" type="password" inputmode="numeric" pattern="[0-9]{6}" maxlength="6" placeholder="••••••" required>
@@ -456,175 +502,196 @@ pre {
     </div>
 
     <div id="cfgArea" class="hidden">
-      <div class="msg warn show" id="defaultPinWarn">The default PIN 123456 is still in use. Change it under Security.</div>
+      <div class="msg warn show" id="defaultPinWarn">The default PIN 123456 is still in use. Change it under System.</div>
+      <div class="msg warn show hidden" id="pinWarn">Two functions use the same GPIO. Pick a different pin where it is marked as used.</div>
+
+      <div class="subtabs" role="tablist">
+        <button type="button" class="subtab active" data-sub="sub-relays">Relays (1–8)</button>
+        <button type="button" class="subtab" data-sub="sub-net">WiFi &amp; MQTT</button>
+        <button type="button" class="subtab" data-sub="sub-aux">Fan, Sensor &amp; iTag</button>
+        <button type="button" class="subtab" data-sub="sub-sys">System &amp; Reset</button>
+      </div>
 
       <form id="cfgForm" autocomplete="off">
-        <div class="card">
-          <div class="card-header"><h2>Device</h2></div>
-          <label for="hostname">Hostname</label>
-          <input id="hostname" maxlength="31" required>
-          <p class="muted" style="margin-bottom:0">Board: <strong id="boardName">-</strong>. Only the GPIOs below are available.</p>
-        </div>
-
-        <div class="card">
-          <div class="card-header"><h2>WiFi</h2></div>
-          <div class="row2">
-            <div>
-              <label for="wifiSsid">WiFi name (SSID)</label>
-              <input id="wifiSsid" maxlength="63">
+        <div class="subpanel" id="sub-relays">
+          <div class="card">
+            <div class="card-header">
+              <h2>Relay Channels</h2>
+              <div style="display:flex; gap:6px">
+                <button type="button" class="btn secondary" id="expandAllBtn" style="min-height:28px; padding:3px 9px; font-size:11.5px">Expand All</button>
+                <button type="button" class="btn secondary" id="collapseAllBtn" style="min-height:28px; padding:3px 9px; font-size:11.5px">Collapse All</button>
+              </div>
             </div>
-            <div>
-              <label for="wifiPass">WiFi password</label>
-              <input id="wifiPass" type="password" maxlength="63" placeholder="leave blank to keep current">
-            </div>
-          </div>
-          <div class="row2">
-            <div>
-              <label for="apPass">Setup AP password (8 to 63 characters)</label>
-              <input id="apPass" type="password" maxlength="63" placeholder="leave blank to keep current">
-            </div>
-            <div class="muted" style="align-self:end; padding-bottom:6px">
-              Used when the device opens its own WiFi (ESP32-Setup-XXXX). Default is 11111111.
-            </div>
+            <div class="relay-cfg-grid" id="relayCfg"></div>
           </div>
         </div>
 
-        <div class="card">
-          <div class="card-header"><h2>MQTT</h2></div>
-          <label class="check"><input type="checkbox" id="mqttEn"> MQTT enabled</label>
-          <div class="row3">
-            <div>
-              <label for="mqttScheme">Scheme</label>
-              <select id="mqttScheme">
-                <option value="wss">wss (Cloudflare tunnel)</option>
-                <option value="ws">ws</option>
-                <option value="mqtts">mqtts</option>
-                <option value="mqtt">mqtt</option>
-              </select>
+        <div class="subpanel hidden" id="sub-net">
+          <div class="card">
+            <div class="card-header"><h2>WiFi</h2></div>
+            <div class="row2">
+              <div>
+                <label for="wifiSsid">WiFi name (SSID)</label>
+                <input id="wifiSsid" maxlength="32">
+              </div>
+              <div>
+                <label for="wifiPass">WiFi password</label>
+                <input id="wifiPass" type="password" maxlength="63" placeholder="leave blank to keep current">
+              </div>
             </div>
-            <div>
-              <label for="mqttHost">Host</label>
-              <input id="mqttHost" maxlength="63">
-            </div>
-            <div>
-              <label for="mqttPort">Port</label>
-              <input id="mqttPort" type="number" min="1" max="65535">
-            </div>
-          </div>
-          <div class="row3">
-            <div>
-              <label for="mqttPath">WebSocket path</label>
-              <input id="mqttPath" maxlength="63">
-            </div>
-            <div>
-              <label for="mqttUser">Username (optional)</label>
-              <input id="mqttUser" maxlength="63" autocomplete="off">
-            </div>
-            <div>
-              <label for="mqttPass">Password (blank = keep)</label>
-              <input id="mqttPass" type="password" maxlength="63" autocomplete="new-password">
+            <div class="row2">
+              <div>
+                <label for="apPass">Setup AP password (8 to 63 characters)</label>
+                <input id="apPass" type="password" maxlength="63" placeholder="leave blank to keep current">
+              </div>
+              <div class="muted" style="align-self:end; padding-bottom:6px">
+                Used when the device opens its own WiFi (ESP32-Setup-XXXX). Default is 11111111.
+              </div>
             </div>
           </div>
-          <label for="mqttPrefix">Topic prefix (example: home1/)</label>
-          <input id="mqttPrefix" maxlength="63">
-        </div>
 
-        <div class="card">
-          <div class="card-header"><h2>Relays</h2></div>
-          <div class="msg warn show hidden" id="pinWarn">Two functions use the same GPIO. Pick a different pin where it is marked as used.</div>
-          <div class="relay-cfg-grid" id="relayCfg"></div>
-        </div>
-
-        <div class="card">
-          <div class="card-header"><h2>Fan (iTag remote)</h2></div>
-          <label class="check"><input type="checkbox" id="fanEn"> Fan enabled</label>
-          <div class="row2">
-            <div>
-              <label for="fanName2">Name</label>
-              <input id="fanName2" maxlength="31">
+          <div class="card">
+            <div class="card-header"><h2>MQTT</h2></div>
+            <label class="check"><input type="checkbox" id="mqttEn"> MQTT enabled</label>
+            <div class="row3">
+              <div>
+                <label for="mqttScheme">Scheme</label>
+                <select id="mqttScheme">
+                  <option value="wss">wss (Cloudflare tunnel)</option>
+                  <option value="ws">ws</option>
+                  <option value="mqtts">mqtts</option>
+                  <option value="mqtt">mqtt</option>
+                </select>
+              </div>
+              <div>
+                <label for="mqttHost">Host</label>
+                <input id="mqttHost" maxlength="63">
+              </div>
+              <div>
+                <label for="mqttPort">Port</label>
+                <input id="mqttPort" type="number" min="1" max="65535">
+              </div>
             </div>
-            <div>
-              <label for="fanMax">Speeds</label>
-              <select id="fanMax">
-                <option value="2">2 speeds</option>
-                <option value="3">3 speeds</option>
-              </select>
+            <div class="row3">
+              <div>
+                <label for="mqttPath">WebSocket path</label>
+                <input id="mqttPath" maxlength="63">
+              </div>
+              <div>
+                <label for="mqttUser">Username (optional)</label>
+                <input id="mqttUser" maxlength="63" autocomplete="off">
+              </div>
+              <div>
+                <label for="mqttPass">Password (blank = keep)</label>
+                <input id="mqttPass" type="password" maxlength="63" autocomplete="new-password">
+              </div>
             </div>
-          </div>
-          <div class="row3">
-            <div>
-              <label for="fanS1">Speed 1 GPIO</label>
-              <select id="fanS1" data-pin data-owner="fanEn" data-speed="1"></select>
-            </div>
-            <div>
-              <label for="fanS2">Speed 2 GPIO</label>
-              <select id="fanS2" data-pin data-owner="fanEn" data-speed="2"></select>
-            </div>
-            <div>
-              <label for="fanS3">Speed 3 GPIO</label>
-              <select id="fanS3" data-pin data-owner="fanEn" data-speed="3"></select>
-            </div>
-          </div>
-          <label class="check"><input type="checkbox" id="fanAh"> Active high (ON = HIGH)</label>
-        </div>
-
-        <div class="card">
-          <div class="card-header"><h2>Temperature / humidity sensor</h2></div>
-          <div class="row3">
-            <div>
-              <label for="sensType">Sensor</label>
-              <select id="sensType">
-                <option value="0">None</option>
-                <option value="1">DHT22 (temp + humidity)</option>
-                <option value="2">DS18B20 (temp only)</option>
-              </select>
-            </div>
-            <div>
-              <label for="sensGpio">Data GPIO</label>
-              <select id="sensGpio" data-pin data-owner="sensor"></select>
-            </div>
-            <div>
-              <label for="sensInt">Read every (seconds)</label>
-              <input id="sensInt" type="number" min="5" max="3600">
-            </div>
+            <label for="mqttPrefix">Topic prefix (example: home1/)</label>
+            <input id="mqttPrefix" maxlength="63">
           </div>
         </div>
 
-        <div class="card">
-          <div class="card-header"><h2>iTag remote</h2></div>
-          <label class="check"><input type="checkbox" id="itagEn"> iTag enabled</label>
-          <label for="itagAddr">iTag address</label>
-          <input id="itagAddr" maxlength="17" placeholder="AA:BB:CC:DD:EE:FF">
-          <div class="actions">
-            <button type="button" class="btn secondary" id="scanBtn">Scan for iTag</button>
-            <button type="button" class="btn secondary" id="rawBtn">Learn mode: show raw bytes</button>
+        <div class="subpanel hidden" id="sub-aux">
+          <div class="card">
+            <div class="card-header"><h2>Fan (iTag remote)</h2></div>
+            <label class="check"><input type="checkbox" id="fanEn"> Fan enabled</label>
+            <div class="row2">
+              <div>
+                <label for="fanName2">Name</label>
+                <input id="fanName2" maxlength="31">
+              </div>
+              <div>
+                <label for="fanMax">Speeds</label>
+                <select id="fanMax">
+                  <option value="2">2 speeds</option>
+                  <option value="3">3 speeds</option>
+                </select>
+              </div>
+            </div>
+            <div class="row3">
+              <div>
+                <label for="fanS1">Speed 1 GPIO</label>
+                <select id="fanS1" data-pin data-owner="fanEn" data-speed="1"></select>
+              </div>
+              <div>
+                <label for="fanS2">Speed 2 GPIO</label>
+                <select id="fanS2" data-pin data-owner="fanEn" data-speed="2"></select>
+              </div>
+              <div>
+                <label for="fanS3">Speed 3 GPIO</label>
+                <select id="fanS3" data-pin data-owner="fanEn" data-speed="3"></select>
+              </div>
+            </div>
+            <label class="check"><input type="checkbox" id="fanAh"> Active high (ON = HIGH)</label>
           </div>
-          <div class="list" id="scanList"></div>
-          <pre id="rawList" class="hidden"></pre>
+
+          <div class="card">
+            <div class="card-header"><h2>Temperature / humidity sensor</h2></div>
+            <div class="row3">
+              <div>
+                <label for="sensType">Sensor</label>
+                <select id="sensType">
+                  <option value="0">None</option>
+                  <option value="1">DHT22 (temp + humidity)</option>
+                  <option value="2">DS18B20 (temp only)</option>
+                </select>
+              </div>
+              <div>
+                <label for="sensGpio">Data GPIO</label>
+                <select id="sensGpio" data-pin data-owner="sensor"></select>
+              </div>
+              <div>
+                <label for="sensInt">Read every (seconds)</label>
+                <input id="sensInt" type="number" min="5" max="3600">
+              </div>
+            </div>
+          </div>
+
+          <div class="card">
+            <div class="card-header"><h2>iTag remote</h2></div>
+            <label class="check"><input type="checkbox" id="itagEn"> iTag enabled</label>
+            <label for="itagAddr">iTag address</label>
+            <input id="itagAddr" maxlength="17" placeholder="AA:BB:CC:DD:EE:FF">
+            <div class="actions">
+              <button type="button" class="btn secondary" id="scanBtn">Scan for iTag</button>
+              <button type="button" class="btn secondary" id="rawBtn">Learn mode: show raw bytes</button>
+            </div>
+            <div class="list" id="scanList"></div>
+            <pre id="rawList" class="hidden"></pre>
+          </div>
         </div>
 
-        <div class="card">
-          <div class="card-header"><h2>Security</h2></div>
-          <div class="row2">
-            <div>
-              <label for="newPin">New PIN (6 digits, blank = keep)</label>
-              <input id="newPin" type="password" inputmode="numeric" pattern="[0-9]{6}" maxlength="6" autocomplete="new-password">
+        <div class="subpanel hidden" id="sub-sys">
+          <div class="card">
+            <div class="card-header"><h2>Device &amp; Security</h2></div>
+            <div class="row2">
+              <div>
+                <label for="hostname">Hostname</label>
+                <input id="hostname" maxlength="31" required>
+              </div>
+              <div>
+                <label for="newPin">New PIN (6 digits, blank = keep)</label>
+                <input id="newPin" type="password" inputmode="numeric" pattern="[0-9]{6}" maxlength="6" autocomplete="new-password">
+              </div>
             </div>
+            <p class="muted" style="margin-bottom:0">Board: <strong id="boardName">-</strong>. Only valid board GPIOs are listed in dropdowns.</p>
+          </div>
+
+          <div class="card" style="border-color: rgba(239, 68, 68, 0.3)">
+            <div class="card-header"><h2 style="color:var(--danger)">Factory reset</h2></div>
+            <p class="muted" style="margin-top:0">Erases all settings and returns to the default PIN 123456. Hold GPIO0 to GND for 5 seconds on the board to do the same without the WebUI.</p>
+            <button type="button" class="btn danger" id="resetBtn">Factory reset</button>
           </div>
         </div>
 
         <div class="msg err hidden" id="formErr"></div>
-        <div class="actions">
+        <div class="msg" id="saveMsg"></div>
+
+        <div class="save-bar">
+          <span class="muted">Apply changes &amp; restart ESP32</span>
           <button type="submit" class="btn" id="saveBtn">Save and reboot</button>
         </div>
-        <div class="msg" id="saveMsg"></div>
       </form>
-
-      <div class="card" style="margin-top:16px; border-color: rgba(239, 68, 68, 0.3)">
-        <div class="card-header"><h2 style="color:var(--danger)">Factory reset</h2></div>
-        <p class="muted" style="margin-top:0">Erases all settings and returns to the default PIN 123456. Hold GPIO0 to GND for 5 seconds on the board to do the same without the WebUI.</p>
-        <button type="button" class="btn danger" id="resetBtn">Factory reset</button>
-      </div>
     </div>
   </section>
 </main>
@@ -645,7 +712,6 @@ pre {
   let fanSig = "";
   let statusRefreshing = false;
 
-  // ---------- theme toggle ----------
   const root = document.documentElement;
   $("#themeBtn").addEventListener("click", () => {
     const isDark = root.dataset.theme === "dark" ||
@@ -687,7 +753,6 @@ pre {
     return data;
   }
 
-  // ---------- tabs ----------
   function showTab(name) {
     $$(".tab").forEach((b) => {
       const on = b.dataset.tab === name;
@@ -699,8 +764,13 @@ pre {
   }
   $$(".tab").forEach((b) => b.addEventListener("click", () => showTab(b.dataset.tab)));
 
-  // ---------- dashboard ----------
-  const powerSvg = '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2v10"/><path d="M18.4 6.6a9 9 0 1 1-12.77.04"/></svg>';
+  function showSubTab(id) {
+    $$(".subtab").forEach((b) => b.classList.toggle("active", b.dataset.sub === id));
+    $$(".subpanel").forEach((p) => p.classList.toggle("hidden", p.id !== id));
+  }
+  $$(".subtab").forEach((b) => b.addEventListener("click", () => showSubTab(b.dataset.sub)));
+
+  const powerSvg = '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2v10"/><path d="M18.4 6.6a9 9 0 1 1-12.77.04"/></svg>';
 
   function renderRelays(list) {
     $("#noRelays").classList.toggle("hidden", list.length > 0);
@@ -722,7 +792,7 @@ pre {
             '<span class="relay-badge">OFF</span>' +
           '</div>' +
           '<span class="relay-name"></span>' +
-          '<span class="relay-meta muted"></span>';
+          '<div class="relay-meta"></div>';
         b.querySelector(".relay-name").textContent = r.name;
         b.addEventListener("click", () => toggleRelay(r.index));
         box.appendChild(b);
@@ -734,8 +804,10 @@ pre {
       b.classList.toggle("on", !!r.on);
       b.querySelector(".relay-badge").textContent = r.on ? "ON" : "OFF";
       const meta = [];
-      if (r.schedule && r.schedule.enabled) meta.push("Jadwal " + r.schedule.on + "–" + r.schedule.off);
-      if (r.humanDetector && r.humanDetector.enabled) meta.push(r.humanDetector.detected ? "PIR: terdeteksi" : "PIR: tidak aktif");
+      if (r.schedule && r.schedule.enabled) meta.push("⏰ " + r.schedule.on + "-" + r.schedule.off);
+      if (r.humanDetector && r.humanDetector.enabled) {
+        meta.push(r.humanDetector.detected ? "🚶 Active" : "🚶 " + r.humanDetector.holdSec + "s");
+      }
       b.querySelector(".relay-meta").textContent = meta.join(" · ");
     });
   }
@@ -773,7 +845,7 @@ pre {
         const b = document.createElement("button");
         b.type = "button";
         b.dataset.speed = String(sp);
-        b.textContent = sp === 0 ? "Off" : "Speed " + sp;
+        b.textContent = sp === 0 ? "Off" : "Spd " + sp;
         b.addEventListener("click", () => setFan(sp));
         box.appendChild(b);
       }
@@ -798,16 +870,16 @@ pre {
     setText("stMqtt", s.mqtt ? "Online" : "Offline");
     $("#dotMqtt").classList.toggle("ok", !!s.mqtt);
     if (!s.itagEnabled) {
-      setText("stItag", "Disabled");
+      setText("stItag", "Off");
       $("#dotItag").classList.remove("ok");
     } else {
-      setText("stItag", s.itag ? "Connected" : "Searching");
+      setText("stItag", s.itag ? "Ready" : "Scan...");
       $("#dotItag").classList.toggle("ok", !!s.itag);
     }
     const sen = s.sensor;
     if (sen && sen.valid) {
-      setText("stTemp", Number(sen.temp).toFixed(1) + " °C");
-      setText("stHum", sen.hasHumidity ? Number(sen.humidity).toFixed(0) + " %" : "n/a");
+      setText("stTemp", Number(sen.temp).toFixed(1) + "°C");
+      setText("stHum", sen.hasHumidity ? Number(sen.humidity).toFixed(0) + "%" : "n/a");
     } else {
       setText("stTemp", "-");
       setText("stHum", sen ? "-" : "n/a");
@@ -830,7 +902,6 @@ pre {
     }
   }
 
-  // ---------- login ----------
   function showLogin(msg) {
     token = null;
     $("#cfgArea").classList.add("hidden");
@@ -855,38 +926,75 @@ pre {
     }
   });
 
-  // ---------- config form ----------
+  const chevronSvg = '<svg class="acc-chevron" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg>';
+
   function buildRelayCfg() {
     const box = $("#relayCfg");
     box.innerHTML = "";
     for (let n = 1; n <= 8; n++) {
-      const wrap = document.createElement("div");
-      wrap.className = "subcard";
-      wrap.id = "rcard" + n;
-      wrap.innerHTML =
-        '<label class="check"><input type="checkbox" id="r' + n + 'en"> Relay ' + n + ' enabled</label>' +
-        '<label for="r' + n + 'name">Name</label>' +
-        '<input id="r' + n + 'name" maxlength="31">' +
-        '<div class="row2">' +
-          '<div><label for="r' + n + 'gpio">Output GPIO</label>' +
-          '<select id="r' + n + 'gpio" data-pin data-owner="r' + n + 'en"></select></div>' +
-          '<div><label for="r' + n + 'btn">Physical button GPIO (optional)</label>' +
-          '<select id="r' + n + 'btn" data-pin data-owner="r' + n + 'en"></select></div>' +
-        '</div>' +
-        '<label class="check"><input type="checkbox" id="r' + n + 'sch"> Daily schedule enabled</label>' +
-        '<div class="row2">' +
-          '<div><label for="r' + n + 'on">Turn ON</label><input type="time" id="r' + n + 'on" value="18:00"></div>' +
-          '<div><label for="r' + n + 'off">Turn OFF</label><input type="time" id="r' + n + 'off" value="06:00"></div>' +
-        '</div>' +
-        '<label class="check"><input type="checkbox" id="r' + n + 'pir"> PIR human detector enabled</label>' +
-        '<div class="row2">' +
-          '<div><label for="r' + n + 'pirgpio">PIR GPIO (shared input)</label>' +
-          '<select id="r' + n + 'pirgpio" data-pin data-owner="r' + n + 'pir" data-role="pir"></select></div>' +
-          '<div><label for="r' + n + 'hold">PIR hold (seconds)</label><input type="number" id="r' + n + 'hold" min="1" max="3600" value="60"></div>' +
-        '</div>' +
-        '<label class="check"><input type="checkbox" id="r' + n + 'ah"> Active high (ON = HIGH)</label>';
-      box.appendChild(wrap);
+      const det = document.createElement("details");
+      det.className = "relay-acc";
+      det.id = "rcard" + n;
+      det.innerHTML =
+        '<summary>' +
+          '<div class="acc-left">' +
+            '<span class="pill" id="r' + n + 'statBadge">OFF</span>' +
+            '<span class="acc-title" id="r' + n + 'headerTitle">Relay ' + n + '</span>' +
+          '</div>' +
+          '<div class="acc-badges">' +
+            '<span class="pill info hidden" id="r' + n + 'schedBadge">⏰</span>' +
+            '<span class="pill info hidden" id="r' + n + 'pirBadge">🚶</span>' +
+            chevronSvg +
+          '</div>' +
+        '</summary>' +
+        '<div class="acc-body">' +
+          '<div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:6px">' +
+            '<label class="check"><input type="checkbox" id="r' + n + 'en"> Enable Relay ' + n + '</label>' +
+            '<label class="check"><input type="checkbox" id="r' + n + 'ah"> Active High</label>' +
+          '</div>' +
+          '<label for="r' + n + 'name">Relay Name</label>' +
+          '<input id="r' + n + 'name" maxlength="31" placeholder="Relay ' + n + '">' +
+
+          '<div class="row2-inline">' +
+            '<div><label for="r' + n + 'gpio">Output GPIO</label>' +
+            '<select id="r' + n + 'gpio" data-pin data-owner="r' + n + 'en"></select></div>' +
+            '<div><label for="r' + n + 'btn">Button GPIO (GND)</label>' +
+            '<select id="r' + n + 'btn" data-pin data-owner="r' + n + 'en"></select></div>' +
+          '</div>' +
+
+          '<div class="feat-box">' +
+            '<div class="feat-head">' +
+              '<label class="check" style="margin:0"><input type="checkbox" id="r' + n + 'schedEn"> Schedule ON / OFF</label>' +
+            '</div>' +
+            '<div class="feat-fields row2-inline hidden" id="r' + n + 'schedBox">' +
+              '<div><label for="r' + n + 'onTime">Time ON</label>' +
+              '<input type="time" id="r' + n + 'onTime" value="18:00"></div>' +
+              '<div><label for="r' + n + 'offTime">Time OFF</label>' +
+              '<input type="time" id="r' + n + 'offTime" value="06:00"></div>' +
+            '</div>' +
+          '</div>' +
+
+          '<div class="feat-box">' +
+            '<div class="feat-head">' +
+              '<label class="check" style="margin:0"><input type="checkbox" id="r' + n + 'pirEn"> Auto Human Detector</label>' +
+            '</div>' +
+            '<div class="feat-fields row2-inline hidden" id="r' + n + 'pirBox">' +
+              '<div><label for="r' + n + 'pirGpio">PIR GPIO (shared)</label>' +
+              '<select id="r' + n + 'pirGpio" data-pin data-owner="r' + n + 'pirOwner" data-role="pir"></select></div>' +
+              '<div><label for="r' + n + 'pirHold">Hold ON (sec)</label>' +
+              '<input type="number" id="r' + n + 'pirHold" min="1" max="3600" value="60"></div>' +
+            '</div>' +
+          '</div>' +
+        '</div>';
+      box.appendChild(det);
     }
+
+    $("#expandAllBtn").addEventListener("click", () => {
+      $$("#relayCfg details").forEach((d) => { d.open = true; });
+    });
+    $("#collapseAllBtn").addEventListener("click", () => {
+      $$("#relayCfg details").forEach((d) => { d.open = false; });
+    });
   }
 
   function populatePins() {
@@ -905,27 +1013,42 @@ pre {
   function setVal(id, v) { $("#" + id).value = v == null ? "" : String(v); }
   function setChk(id, v) { $("#" + id).checked = !!v; }
 
-  // A pin select only counts when its function is active
   function isActive(sel) {
     if (sel.dataset.speed && Number(sel.dataset.speed) > Number($("#fanMax").value)) return false;
     const owner = sel.dataset.owner;
     if (!owner) return true;
     if (owner === "sensor") return Number($("#sensType").value) !== 0;
-    const cb = $("#" + owner);
-    if (!cb || !cb.checked) return false;
-    if (sel.dataset.role === "pir") {
-      const relayNumber = owner.match(/^r(\d+)pir$/);
-      return !!relayNumber && $("#r" + relayNumber[1] + "en").checked;
+    const pirMatch = owner.match(/^r(\d+)pirOwner$/);
+    if (pirMatch) {
+      const idx = pirMatch[1];
+      return $("#r" + idx + "en").checked && $("#r" + idx + "pirEn").checked;
     }
-    return true;
+    const cb = $("#" + owner);
+    return cb ? cb.checked : true;
   }
 
-  // Dedupe: a GPIO chosen by an active function is greyed out in every other dropdown
   function refreshPinOptions() {
     for (let n = 1; n <= 8; n++) {
       const card = $("#rcard" + n);
-      if (card) card.classList.toggle("enabled", $("#r" + n + "en").checked);
+      const en = $("#r" + n + "en").checked;
+      const schedEn = $("#r" + n + "schedEn").checked;
+      const pirEn = $("#r" + n + "pirEn").checked;
+      const rName = $("#r" + n + "name").value.trim() || ("Relay " + n);
+      const gpioVal = $("#r" + n + "gpio").value;
+
+      if (card) card.classList.toggle("enabled", en);
+      $("#r" + n + "schedBox").classList.toggle("hidden", !schedEn);
+      $("#r" + n + "pirBox").classList.toggle("hidden", !pirEn);
+
+      const statBadge = $("#r" + n + "statBadge");
+      statBadge.textContent = en ? (gpioVal !== "-1" ? "GPIO " + gpioVal : "ON") : "OFF";
+      statBadge.classList.toggle("on", en);
+
+      $("#r" + n + "headerTitle").textContent = rName;
+      $("#r" + n + "schedBadge").classList.toggle("hidden", !(en && schedEn));
+      $("#r" + n + "pirBadge").classList.toggle("hidden", !(en && pirEn));
     }
+
     const pinSels = $$("select[data-pin]");
     const usedBy = new Map();
     pinSels.forEach((sel) => {
@@ -935,18 +1058,26 @@ pre {
       if (!usedBy.has(v)) usedBy.set(v, []);
       usedBy.get(v).push(sel);
     });
+
+    const isPirOnly = (list) => list.length > 0 && list.every((s) => s.dataset.role === "pir");
+
     pinSels.forEach((sel) => {
+      const selIsPir = sel.dataset.role === "pir";
       Array.from(sel.options).forEach((opt) => {
         const v = Number(opt.value);
         if (v < 0) { opt.disabled = false; return; }
-        const users = usedBy.get(v) || [];
-        const sharedPir = sel.dataset.role === "pir" && users.every((s) => s.dataset.role === "pir");
-        opt.disabled = users.some((s) => s !== sel) && !sharedPir;
+        const others = (usedBy.get(v) || []).filter((s) => s !== sel);
+        if (others.length === 0) {
+          opt.disabled = false;
+        } else {
+          opt.disabled = !(selIsPir && isPirOnly(others));
+        }
       });
     });
+
     let conflict = false;
     usedBy.forEach((list) => {
-      if (list.length > 1 && !list.every((sel) => sel.dataset.role === "pir")) conflict = true;
+      if (list.length > 1 && !isPirOnly(list)) conflict = true;
     });
     $("#pinWarn").classList.toggle("hidden", !conflict);
   }
@@ -971,20 +1102,25 @@ pre {
     setVal("mqttPrefix", c.mqtt.prefix);
 
     for (let n = 1; n <= 8; n++) {
-      const r = c.relays[n - 1];
+      const r = c.relays[n - 1] || {};
       setChk("r" + n + "en", r.enabled);
       setVal("r" + n + "name", r.name);
-      setSel("r" + n + "gpio", r.gpio);
-      setSel("r" + n + "btn", r.button);
+      setSel("r" + n + "gpio", r.gpio ?? -1);
+      setSel("r" + n + "btn", r.button ?? -1);
       setChk("r" + n + "ah", r.activeHigh);
-      const schedule = r.schedule || {};
-      setChk("r" + n + "sch", schedule.enabled);
-      setVal("r" + n + "on", schedule.on || "18:00");
-      setVal("r" + n + "off", schedule.off || "06:00");
-      const detector = r.humanDetector || {};
-      setChk("r" + n + "pir", detector.enabled);
-      setSel("r" + n + "pirgpio", detector.gpio == null ? -1 : detector.gpio);
-      setVal("r" + n + "hold", detector.holdSec || 60);
+
+      const sch = r.schedule || {};
+      setChk("r" + n + "schedEn", sch.enabled);
+      setVal("r" + n + "onTime", sch.on || "18:00");
+      setVal("r" + n + "offTime", sch.off || "06:00");
+
+      const pir = r.humanDetector || {};
+      setChk("r" + n + "pirEn", pir.enabled);
+      setSel("r" + n + "pirGpio", pir.gpio ?? -1);
+      setVal("r" + n + "pirHold", pir.holdSec ?? 60);
+
+      const acc = $("#rcard" + n);
+      if (acc) acc.open = false;
     }
 
     setChk("fanEn", c.fan.enabled);
@@ -1022,7 +1158,6 @@ pre {
     return null;
   }
 
-  // Build the POST body and validate the obvious mistakes before sending
   function collect() {
     const box = $("#formErr");
     box.classList.add("hidden");
@@ -1038,6 +1173,12 @@ pre {
 
     const ap = raw("apPass");
     if (ap.length > 0 && (ap.length < 8 || ap.length > 63)) return fail("AP password must be 8 to 63 characters.");
+
+    if (raw("wifiSsid").length > 32) return fail("WiFi name must be 32 characters or fewer.");
+    const wifiPass = raw("wifiPass");
+    if (wifiPass.length > 0 && (wifiPass.length < 8 || wifiPass.length > 63)) {
+      return fail("WiFi password must be empty or 8 to 63 characters.");
+    }
 
     const newPin = raw("newPin");
     if (newPin.length > 0 && !/^[0-9]{6}$/.test(newPin)) return fail("PIN must be exactly 6 digits.");
@@ -1071,7 +1212,8 @@ pre {
         name: v("fanName2"),
         maxSpeed: num("fanMax"),
         activeHigh: ck("fanAh"),
-        speedGpio: [num("fanS1"), num("fanS2"), num("fanS3")]
+        // pins above the chosen max speed are not used, so send -1 for them
+        speedGpio: [0, 1, 2].map((i) => (i < num("fanMax") ? num("fanS" + (i + 1)) : -1))
       },
       sensor: {
         type: num("sensType"),
@@ -1083,20 +1225,41 @@ pre {
     if (newPin) data.pin = newPin;
 
     for (let n = 1; n <= 8; n++) {
+      // firmware requires a valid hold time for every relay, so check it always
+      const holdSec = num("r" + n + "pirHold");
+      if (!(holdSec >= 1 && holdSec <= 3600)) {
+        return fail("Relay " + n + " Human Detector hold time must be 1 to 3600 seconds.");
+      }
+      const onTime = v("r" + n + "onTime");
+      const offTime = v("r" + n + "offTime");
+      if (ck("r" + n + "schedEn")) {
+        const HHMM = /^([01]\d|2[0-3]):[0-5]\d$/;
+        if (!HHMM.test(onTime) || !HHMM.test(offTime)) return fail("Relay " + n + " schedule times must be HH:MM.");
+        if (onTime === offTime) return fail("Relay " + n + " schedule ON and OFF times must differ.");
+      }
       data.relays.push({
         enabled: ck("r" + n + "en"),
         name: v("r" + n + "name"),
         gpio: num("r" + n + "gpio"),
         button: num("r" + n + "btn"),
         activeHigh: ck("r" + n + "ah"),
-        schedule: { enabled: ck("r" + n + "sch"), on: raw("r" + n + "on"), off: raw("r" + n + "off") },
-        humanDetector: { enabled: ck("r" + n + "pir"), gpio: num("r" + n + "pirgpio"), holdSec: num("r" + n + "hold") }
+        schedule: {
+          enabled: ck("r" + n + "schedEn"),
+          on: onTime,
+          off: offTime
+        },
+        humanDetector: {
+          enabled: ck("r" + n + "pirEn"),
+          gpio: num("r" + n + "pirGpio"),
+          holdSec: holdSec
+        }
       });
     }
     return data;
   }
 
   $("#cfgForm").addEventListener("change", refreshPinOptions);
+  $("#cfgForm").addEventListener("input", refreshPinOptions);
 
   $("#cfgForm").addEventListener("submit", async (e) => {
     e.preventDefault();
@@ -1132,7 +1295,6 @@ pre {
     }
   });
 
-  // ---------- iTag ----------
   $("#scanBtn").addEventListener("click", async () => {
     const list = $("#scanList");
     list.innerHTML = "";
@@ -1191,7 +1353,6 @@ pre {
     }
   });
 
-  // ---------- factory reset ----------
   $("#resetBtn").addEventListener("click", async () => {
     if (!window.confirm("Erase all settings and restart with the default config?")) return;
     try {
@@ -1216,7 +1377,6 @@ pre {
     }
   });
 
-  // ---------- init ----------
   buildRelayCfg();
   showTab("dash");
   refreshStatus();
