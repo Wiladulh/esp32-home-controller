@@ -19,6 +19,16 @@ bool scheduledKnown[MAX_RELAYS] = {};
 bool lastPresence[MAX_RELAYS] = {};
 bool presenceKnown[MAX_RELAYS] = {};
 bool initialized = false;
+
+time_t boundaryTime(const tm& local, const RelayScheduleCfg& cfg, bool scheduled) {
+  tm boundary = local;
+  const char* value = scheduled ? cfg.on : cfg.off;
+  boundary.tm_hour = (value[0] - '0') * 10 + value[1] - '0';
+  boundary.tm_min = (value[3] - '0') * 10 + value[4] - '0';
+  boundary.tm_sec = 0;
+  boundary.tm_isdst = -1;
+  return mktime(&boundary);
+}
 }
 
 namespace Schedule {
@@ -51,7 +61,10 @@ void tick() {
                                   scheduled != lastScheduled[i];
     const bool presenceChanged = !presenceKnown[i] || presenceNow != lastPresence[i];
 
-    if (scheduleBoundary) Relay::clearManualOverride(i);
+    if (scheduleBoundary) {
+      const time_t boundary = boundaryTime(local, relay.schedule, scheduled);
+      Relay::clearManualOverrideAtBoundary(i, boundary);
+    }
 
     if (!scheduledKnown[i] || scheduleBoundary || presenceChanged) {
       Relay::setAutomatic(i, scheduled || presenceNow);
