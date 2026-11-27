@@ -45,7 +45,6 @@ void begin() {
     s.button = r.enabled ? r.buttonGpio : -1;
     s.activeHigh = r.activeHigh;
     if (s.gpio >= 0) {
-      digitalWrite(s.gpio, s.activeHigh ? LOW : HIGH);
       pinMode(s.gpio, OUTPUT);
       digitalWrite(s.gpio, s.activeHigh ? LOW : HIGH);
       s.on = false;

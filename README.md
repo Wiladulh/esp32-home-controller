@@ -89,17 +89,19 @@ Alternatif: tombol **Factory reset** di tab Config (perlu PIN).
 
 ## MQTT
 
-Broker default: `wss://mqtt.giebux.my.id:443/`. Prefix topik diatur di Config (contoh `home1/`).
+Broker default: `wss://mqtt.giebux.my.id:443/`. Prefix topik diatur di Config. Isi `set/set` akan menghasilkan topik `set/set/relay1` dan `set/set/fan1`; slash pemisah ditambahkan otomatis sehingga prefix tidak perlu diakhiri slash.
 
 | Topik | Arah | Payload |
 |---|---|---|
-| `{prefix}relay1` … `relay8` | perintah | `on` / `off` (juga `1` / `0`) |
-| `{prefix}relay1/state` | status (retained) | `on` / `off` |
-| `{prefix}fan1` | perintah | `0`, `1`, `2`, `3` |
-| `{prefix}fan1/state` | status (retained) | `0`–`3` |
-| `{prefix}sensor/temp` | sensor (retained) | angka desimal, °C |
-| `{prefix}sensor/humidity` | sensor (retained) | angka desimal, % (DHT22 saja) |
-| `{prefix}status` | LWT (retained) | `online` / `offline` |
+| `{prefix}/relay1` … `{prefix}/relay8` | perintah dan status relay | `on` / `off` (juga `1` / `0`); status tidak retained |
+| `{prefix}/fan1` … `{prefix}/fan3` | perintah dan status fan | `on` memilih speed tersebut; `off` menghentikan fan hanya jika speed itu sedang aktif; status tidak retained |
+
+
+| `{prefix}/sensor/temp` | sensor (retained) | angka desimal, °C |
+| `{prefix}/sensor/humidity` | sensor (retained) | angka desimal, % (DHT22 saja) |
+| `{prefix}/status` | LWT (retained) | `online` / `offline` |
+
+Pesan status relay/fan tidak menggunakan retained flag. Pesan perintah retained dari broker diabaikan firmware agar perintah lama tidak dijalankan ulang saat reconnect.
 
 Di aplikasi Android (mqtt), aktifkan TLS/SSL dan WebSocket.
 

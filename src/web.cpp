@@ -134,6 +134,7 @@ struct ConfigJob {
   char error[128]{};
   ConfigJobType type = ConfigJobType::Save;
   ConfigJobState state = ConfigJobState::Idle;
+  bool verified = false;
 };
 
 ConfigJob configJob;
@@ -150,6 +151,7 @@ bool queueConfigSave(const RequestBody* body) {
   memcpy(configJob.body, body->data, body->length + 1);
   configJob.type = ConfigJobType::Save;
   configJob.error[0] = '\0';
+  configJob.verified = false;
   configJob.state = ConfigJobState::Queued;
   xSemaphoreGive(configJobMutex);
   return true;
@@ -166,6 +168,7 @@ bool queueFactoryReset() {
   configJob.type = ConfigJobType::FactoryReset;
   configJob.body[0] = '\0';
   configJob.error[0] = '\0';
+  configJob.verified = false;
   configJob.state = ConfigJobState::Queued;
   xSemaphoreGive(configJobMutex);
   return true;
@@ -399,6 +402,7 @@ void registerRoutes() {
     }
     JsonDocument out;
     out["state"] = state;
+    out["verified"] = configJob.verified;
     if (configJob.state == ConfigJobState::Failed) out["error"] = configJob.error;
     String response;
     serializeJson(out, response);
@@ -465,6 +469,9 @@ void processConfigJob() {
   configJob.state = ConfigJobState::Processing;
   xSemaphoreGive(configJobMutex);
 
+  Serial.printf("[cfg] job started: type=%s, free_heap=%u\n",
+                type == ConfigJobType::Save ? "save" : "factory-reset",
+                (unsigned)ESP.getFreeHeap());
   String err;
   bool saved = false;
   if (type == ConfigJobType::FactoryReset) {
@@ -472,29 +479,34 @@ void processConfigJob() {
     if (!saved) err = "factory reset failed";
   } else {
     AppConfig next = Config::get();
+    Serial.println("[cfg] parsing submitted configuration");
     if (!Config::fromJson(configJob.body, next, err)) {
-      saved = false;
+      Serial.printf("[cfg] configuration rejected: %s\n", err.c_str());
     } else {
+      Serial.println("[cfg] configuration parsed; validating GPIO map");
       std::vector<String> warnings;
       if (!GpioMap::validate(next, err, warnings)) {
-        saved = false;
+        Serial.printf("[cfg] GPIO validation failed: %s\n", err.c_str());
       } else {
+        Serial.println("[cfg] validation passed; writing and verifying NVS");
         saved = Config::save(next);
+        Serial.printf("[cfg] NVS save result: %s\n", saved ? "success" : "failure");
         if (!saved) err = "save failed, config not changed";
       }
     }
   }
 
   xSemaphoreTake(configJobMutex, portMAX_DELAY);
+  configJob.verified = saved;
   if (saved) {
     configJob.state = ConfigJobState::Succeeded;
-  configJob.error[0] = '\0';
+    configJob.error[0] = '\0';
   } else {
     configJob.state = ConfigJobState::Failed;
     strlcpy(configJob.error, err.c_str(), sizeof(configJob.error));
   }
   xSemaphoreGive(configJobMutex);
-  if (saved) Web::requestRestart(3000);
+  if (saved) Web::requestRestart(8000);
 }
 
 }  // namespace

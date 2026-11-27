@@ -13,7 +13,15 @@ esp_mqtt_client_handle_t client = nullptr;
 std::atomic<bool> isConnected{false};
 String prefix;
 
-String topic(const char* suffix) { return prefix + suffix; }
+String topic(const char* suffix) {
+  String base = prefix;
+  while (base.endsWith("/")) base.remove(base.length() - 1);
+  String leaf = suffix;
+  while (leaf.startsWith("/")) leaf.remove(0, 1);
+  if (base.length() == 0) return leaf;
+  if (leaf.length() == 0) return base;
+  return base + "/" + leaf;
+}
 
 void subscribeAll() {
   for (uint8_t i = 0; i < MAX_RELAYS; i++) {
@@ -22,8 +30,10 @@ void subscribeAll() {
     esp_mqtt_client_subscribe(client, t.c_str(), 1);
   }
   if (Fan::isEnabled()) {
-    String t = topic("fan1");
-    esp_mqtt_client_subscribe(client, t.c_str(), 1);
+    for (uint8_t speed = 1; speed <= Fan::maxSpeed(); speed++) {
+      String t = topic(("fan" + String(speed)).c_str());
+      esp_mqtt_client_subscribe(client, t.c_str(), 1);
+    }
   }
 }
 
@@ -43,28 +53,36 @@ int parseOnOff(const char* p, int len) {
   return -1;
 }
 
-void handleCommand(const char* t, int tlen, const char* d, int dlen) {
-  // copy topic (event data is not null-terminated)
+void handleCommand(const char* t, int tlen, const char* d, int dlen, bool retained) {
+  // Never execute broker-retained commands replayed during (re)subscription.
+  if (retained) return;
+  // MQTT event topic/data buffers are length-delimited, not null-terminated.
   char tb[128];
-  int n = min(tlen, (int)sizeof(tb) - 1);
-  memcpy(tb, t, n);
-  tb[n] = '\0';
-  String sTopic(tb);
-  if (!sTopic.startsWith(prefix)) return;
-  String rest = sTopic.substring(prefix.length());
+  if (tlen <= 0 || tlen >= (int)sizeof(tb)) return;
+  memcpy(tb, t, tlen);
+  tb[tlen] = '\0';
 
-  if (rest.length() == 6 && rest.startsWith("relay") &&
-      rest[5] >= '1' && rest[5] <= '8') {
-    const int idx = rest[5] - '0';
-    if (idx > MAX_RELAYS) return;
-    int v = parseOnOff(d, dlen);
-    if (v < 0) return;
-    Relay::set(idx - 1, v == 1);
+  String root = prefix;
+  while (root.endsWith("/")) root.remove(root.length() - 1);
+  String sTopic(tb);
+  String topicRoot = root.length() ? root + "/" : "";
+  if (!sTopic.startsWith(topicRoot)) return;
+  String rest = sTopic.substring(topicRoot.length());
+
+  if (rest.startsWith("relay") && rest.length() == 6 && rest[5] >= '1' && rest[5] <= '8') {
+    const uint8_t index = rest[5] - '1';
+    if (!Relay::isEnabled(index)) return;
+    const int value = parseOnOff(d, dlen);
+    if (value >= 0) Relay::set(index, value == 1);
     return;
   }
-  if (rest == "fan1") {
-    if (dlen != 1 || d[0] < '0' || d[0] > '3') return;
-    Fan::setSpeed(d[0] - '0');
+
+  if (rest.startsWith("fan") && rest.length() == 4 && rest[3] >= '1' && rest[3] <= '3') {
+    const uint8_t speed = rest[3] - '0';
+    if (!Fan::isEnabled() || speed > Fan::maxSpeed()) return;
+    const int value = parseOnOff(d, dlen);
+    if (value == 1) Fan::setSpeed(speed);
+    else if (value == 0) Fan::setSpeedIfCurrent(speed, 0);
   }
 }
 
@@ -83,7 +101,7 @@ void eventHandler(void*, esp_event_base_t, int32_t id, void* data) {
       isConnected = false;
       break;
     case MQTT_EVENT_DATA:
-      handleCommand(e->topic, e->topic_len, e->data, e->data_len);
+      handleCommand(e->topic, e->topic_len, e->data, e->data_len, e->retain);
       break;
     default:
       break;
@@ -147,16 +165,18 @@ bool connected() { return isConnected.load(std::memory_order_acquire); }
 
 void publishRelay(uint8_t index, bool on) {
   if (!client || !isConnected) return;
-  String t = topic(("relay" + String(index + 1) + "/state").c_str());
+  String t = topic(("relay" + String(index + 1)).c_str());
   const char* v = on ? "on" : "off";
-  esp_mqtt_client_enqueue(client, t.c_str(), v, 0, 1, 1, true);
+  esp_mqtt_client_enqueue(client, t.c_str(), v, 0, 1, 0, true);
 }
 
 void publishFan(uint8_t speed) {
   if (!client || !isConnected) return;
-  String t = topic("fan1/state");
-  char v[2] = {(char)('0' + speed), '\0'};
-  esp_mqtt_client_enqueue(client, t.c_str(), v, 1, 1, 1, true);
+  for (uint8_t index = 1; index <= Fan::maxSpeed(); index++) {
+    String t = topic(("fan" + String(index)).c_str());
+    const char* value = speed == index ? "on" : "off";
+    esp_mqtt_client_enqueue(client, t.c_str(), value, 0, 1, 0, true);
+  }
 }
 
 void publishSensor(float tempC, float humidity, bool hasHumidity) {
