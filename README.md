@@ -20,7 +20,7 @@ pio run                 # firmware
 pio run -t buildfs      # LittleFS berisi data/
 ```
 
-Framework: Arduino-ESP32 3.3.x lewat pioarduino (`platformio.ini` dipin ke rilis 55.03.312).
+Framework: Arduino-ESP32 3.3.x lewat pioarduino (platformio.ini dipin ke rilis 55.03.312).
 Partisi tanpa OTA: aplikasi 3 MB, LittleFS 832 KiB (`partitions.csv`, label `spiffs`), dan core dump 128 KiB. Pengaturan core dump, full default root CA bundle, serta MQTT WebSocket/WSS diterapkan melalui `custom_sdkconfig` khusus platform pioarduino (`sdkconfig.custom`). Build CI harus membuktikan konfigurasi tersebut berhasil diterapkan.
 Tidak ada OTA. Update firmware dilakukan dengan flash ulang dari PC.
 
@@ -64,8 +64,10 @@ Aturan validasi (dicek di firmware saat simpan dan saat boot):
 - Tombol fisik relay opsional. Jika dipasang, tombol menggunakan INPUT_PULLUP dan momentary ke GND.
 - Jadwal harian per relay memiliki satu waktu ON dan OFF; rentang lintas tengah malam didukung (misalnya 18:00–06:00).
 - PIR aktif-HIGH; deteksi dipertahankan selama hold time setelah gerakan terakhir.
-- Jika jadwal dan PIR sama-sama aktif, relay ON jika jadwal sedang dalam rentang ON atau PIR masih mendeteksi gerakan.
-- Perintah manual dari WebUI/MQTT berlaku langsung; otomasi mengevaluasi ulang pada pergantian menit jadwal atau perubahan status PIR.
+- Dalam mode otomatis, relay ON jika jadwal berada dalam rentang ON atau PIR masih mendeteksi gerakan.
+- Perintah manual dari WebUI, MQTT, atau tombol fisik mengalahkan jadwal dan PIR. Status manual dipertahankan sampai jadwal benar-benar berganti ON ke OFF atau OFF ke ON berikutnya; evaluasi loop/menit biasa tidak membatalkannya.
+- Saat batas jadwal berikutnya tercapai, override manual dihapus dan kendali otomatis mengambil alih.
+- Jika jadwal tidak diaktifkan untuk relay, tidak ada batas jadwal untuk menghapus override. Perintah manual akan tetap mengunci PIR sampai perangkat restart atau jadwal diaktifkan dan mencapai batas berikutnya.
 - Jadwal hanya dijalankan setelah waktu NTP valid, memakai zona WIB yang sudah dikonfigurasi firmware.
 - Jika konfigurasi tidak valid, firmware masuk safe mode: relay tidak diaktifkan dan pesan error tampil di serial.
 
@@ -101,8 +103,6 @@ Broker default: `wss://mqtt.giebux.my.id:443/`. Prefix topik diatur di Config. I
 |---|---|---|
 | `{prefix}/relay1` … `{prefix}/relay8` | perintah dan status relay | `on` / `off` (juga `1` / `0`); status tidak retained |
 | `{prefix}/fan1` … `{prefix}/fan3` | perintah dan status fan | `on` memilih speed tersebut; `off` menghentikan fan hanya jika speed itu sedang aktif; status tidak retained |
-
-
 | `{prefix}/sensor/temp` | sensor (retained) | angka desimal, °C |
 | `{prefix}/sensor/humidity` | sensor (retained) | angka desimal, % (DHT22 saja) |
 | `{prefix}/status` | LWT (retained) | `online` / `offline` |
@@ -134,12 +134,12 @@ Di aplikasi Android (mqtt), aktifkan TLS/SSL dan WebSocket.
 ```
 src/config.*      config struct, NVS (read back after save), JSON
 src/gpio_map.*    profil board (13 pin), validasi pin
-src/relay.*       relay + debounce tombol
+src/relay.*       relay + debounce tombol + manual override
 src/fan.*         fan interlock 500 ms, cycle speed, klik iTag
 src/itag.*        NimBLE: scan, connect, notify, grouping klik
 src/sensor.*      DHT22 / DS18B20
 src/presence.*    shared PIR input and per-relay hold state
-src/schedule.*    daily schedule engine (WIB)
+src/schedule.*    daily schedule engine (WIB) and override arbitration
 src/mqtt.*        esp_mqtt (WSS/WS/TCP)
 src/web.*         AsyncWebServer + JSON API + auth PIN
 src/main.cpp      boot, WiFi STA/AP, NTP, factory reset, loop
@@ -148,7 +148,7 @@ data/index.html   WebUI (Inggris): Dashboard + Config
 
 ## Yang belum diverifikasi
 
-Build ini belum diuji di hardware. Hal berikut perlu diuji saat pertama dipakai:
+Build ini belum diuji di hardware. Hal berikut perlu diuji saat fitur dinyatakan selesai dan baru setelah seluruh perubahan kode selesai:
 
 1. WSS ke Cloudflare dengan full default root CA bundle Mozilla yang diaktifkan melalui `sdkconfig.custom`.
 2. Field `esp_mqtt_client_config_t` dan `network.reconnect_timeout_ms` di IDF 5.5.
