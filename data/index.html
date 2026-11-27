@@ -912,7 +912,12 @@ pre {
     if (!owner) return true;
     if (owner === "sensor") return Number($("#sensType").value) !== 0;
     const cb = $("#" + owner);
-    return cb ? cb.checked : true;
+    if (!cb || !cb.checked) return false;
+    if (sel.dataset.role === "pir") {
+      const relayNumber = owner.match(/^r(\\d+)pir$/);
+      return !!relayNumber && $("#r" + relayNumber[1] + "en").checked;
+    }
+    return true;
   }
 
   // Dedupe: a GPIO chosen by an active function is greyed out in every other dropdown
