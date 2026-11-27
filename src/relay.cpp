@@ -2,6 +2,7 @@
 #include <freertos/FreeRTOS.h>
 #include <freertos/semphr.h>
 #include "config.h"
+#include "relay_policy.h"
 #include <time.h>
 
 namespace {
@@ -135,7 +136,8 @@ void clearManualOverrideAtBoundary(uint8_t index, time_t boundary) {
   if (index >= MAX_RELAYS || !stateMutex) return;
   xSemaphoreTake(stateMutex, portMAX_DELAY);
   State& state = st[index];
-  if (state.manualOverride && (state.manualOverrideAt == 0 || state.manualOverrideAt < boundary)) {
+  if (RelayPolicy::shouldClearManualOverride(state.manualOverride,
+                                             state.manualOverrideAt, boundary)) {
     state.manualOverride = false;
     state.manualOverrideAt = 0;
   }
