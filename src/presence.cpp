@@ -8,6 +8,7 @@ struct RelayPresence {
   int8_t gpio = -1;
   uint16_t holdSec = 60;
   uint32_t lastMotionMs = 0;
+  bool hasMotion = false;
   bool active = false;
 };
 RelayPresence states[MAX_RELAYS];
@@ -50,8 +51,11 @@ void tick() {
     for (uint8_t p = 0; p < initializedCount; ++p) {
       if (initializedPins[p] == state.gpio) { high = pinHigh[p]; break; }
     }
-    if (high) state.lastMotionMs = now;
-    const bool active = high || (state.lastMotionMs != 0 &&
+    if (high) {
+      state.lastMotionMs = now;
+      state.hasMotion = true;
+    }
+    const bool active = high || (state.hasMotion &&
                                   now - state.lastMotionMs < (uint32_t)state.holdSec * 1000UL);
     portENTER_CRITICAL(&presenceMux);
     state.active = active;
