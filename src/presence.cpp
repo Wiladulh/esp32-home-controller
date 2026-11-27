@@ -1,6 +1,7 @@
 #include "presence.h"
 #include "config.h"
-#include <string.h>
+#include <freertos/FreeRTOS.h>
+#include <freertos/portmacro.h>
 
 namespace {
 struct RelayPresence {
@@ -12,6 +13,7 @@ struct RelayPresence {
 RelayPresence states[MAX_RELAYS];
 int8_t initializedPins[MAX_RELAYS];
 uint8_t initializedCount = 0;
+portMUX_TYPE presenceMux = portMUX_INITIALIZER_UNLOCKED;
 }
 
 namespace Presence {
@@ -49,12 +51,19 @@ void tick() {
       if (initializedPins[p] == state.gpio) { high = pinHigh[p]; break; }
     }
     if (high) state.lastMotionMs = now;
-    state.active = high || (state.lastMotionMs != 0 &&
-                            now - state.lastMotionMs < (uint32_t)state.holdSec * 1000UL);
+    const bool active = high || (state.lastMotionMs != 0 &&
+                                  now - state.lastMotionMs < (uint32_t)state.holdSec * 1000UL);
+    portENTER_CRITICAL(&presenceMux);
+    state.active = active;
+    portEXIT_CRITICAL(&presenceMux);
   }
 }
 
 bool detected(uint8_t relayIndex) {
-  return relayIndex < MAX_RELAYS && states[relayIndex].active;
+  if (relayIndex >= MAX_RELAYS) return false;
+  portENTER_CRITICAL(&presenceMux);
+  const bool active = states[relayIndex].active;
+  portEXIT_CRITICAL(&presenceMux);
+  return active;
 }
 }
