@@ -37,7 +37,7 @@ void tick() {
   const AppConfig cfg = Config::get();
   for (uint8_t i = 0; i < MAX_RELAYS; ++i) {
     const auto& relay = cfg.relays[i];
-    if (!relay.enabled) continue;
+    if (!relay.enabled || (!relay.schedule.enabled && !relay.humanDetector.enabled)) continue;
     const bool hasPresence = relay.humanDetector.enabled;
     const bool presenceNow = hasPresence && Presence::detected(i);
     if (!newMinute && presenceNow == lastPresence[i]) continue;
