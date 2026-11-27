@@ -103,6 +103,15 @@ int main() {
   check(!RelayPolicy::shouldClearManualOverride(false, 100, 200),
         "inactive manual override remains inactive");
 
+  check(!RelayPolicy::shouldApplyAutomatic(true, true, false, true),
+        "manual OFF blocks PIR from turning relay ON");
+  check(!RelayPolicy::shouldApplyAutomatic(true, true, true, false),
+        "manual ON blocks schedule from turning relay OFF");
+  check(RelayPolicy::shouldApplyAutomatic(true, false, false, true),
+        "automatic ON is allowed after override is released");
+  check(!RelayPolicy::shouldApplyAutomatic(false, false, false, true),
+        "disabled relay rejects automatic state changes");
+
   if (failures != 0) {
     std::cerr << failures << " test(s) failed\n";
     return 1;

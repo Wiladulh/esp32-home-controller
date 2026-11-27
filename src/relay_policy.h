@@ -9,4 +9,9 @@ inline bool shouldClearManualOverride(bool manualOverride, time_t overrideAt,
   return manualOverride && (overrideAt == 0 || overrideAt < boundary);
 }
 
+inline bool shouldApplyAutomatic(bool relayEnabled, bool manualOverride,
+                                 bool currentState, bool requestedState) {
+  return relayEnabled && !manualOverride && currentState != requestedState;
+}
+
 }  // namespace RelayPolicy

@@ -119,12 +119,12 @@ bool setAutomatic(uint8_t index, bool on) {
   ChangeCb cb;
   bool changed = false;
   xSemaphoreTake(stateMutex, portMAX_DELAY);
-  if (st[index].enabled && !st[index].manualOverride) {
-    changed = st[index].on != on;
-    if (changed) {
-      drive(st[index], on);
-      cb = changeCb;
-    }
+  changed = RelayPolicy::shouldApplyAutomatic(st[index].enabled,
+                                             st[index].manualOverride,
+                                             st[index].on, on);
+  if (changed) {
+    drive(st[index], on);
+    cb = changeCb;
   }
   const bool enabled = st[index].enabled;
   xSemaphoreGive(stateMutex);
