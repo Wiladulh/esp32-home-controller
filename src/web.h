@@ -8,7 +8,7 @@
 // Bearer tokens are not sent automatically by browsers, so no CSRF token is needed.
 namespace Web {
 
-bool begin();
+bool begin(bool filesystemReady);
 void tick();                 // handles scheduled restarts after config save
 void requestRestart(uint32_t delayMs = 1500);
 
