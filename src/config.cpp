@@ -455,15 +455,22 @@ bool fromJson(const char* json, AppConfig& out, String& err) {
     if (it["addr"].is<const char*>()) copyStr(out.itagAddr, sizeof(out.itagAddr), it["addr"]);
   }
 
-  if (out.hostname[0] == '\\0') {
+  auto isBlank = [](const char* value) {
+    for (const char* p = value; *p; ++p) {
+      if (!isspace(static_cast<unsigned char>(*p))) return false;
+    }
+    return true;
+  };
+
+  if (isBlank(out.hostname)) {
     err = "hostname must not be empty";
     return false;
   }
-  if (out.mqtt.enabled && out.mqtt.host[0] == '\\0') {
+  if (out.mqtt.enabled && isBlank(out.mqtt.host)) {
     err = "mqtt.host is required when MQTT is enabled";
     return false;
   }
-  if (out.itagEnabled && out.itagAddr[0] == '\\0') {
+  if (out.itagEnabled && isBlank(out.itagAddr)) {
     err = "itag.addr is required when iTag is enabled";
     return false;
   }

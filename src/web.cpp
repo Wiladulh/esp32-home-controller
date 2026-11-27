@@ -255,15 +255,18 @@ String statusJson() {
     o["index"] = i + 1;
     o["name"] = cfg.relays[i].name[0] ? String(cfg.relays[i].name) : String("Relay ") + String(i + 1);
     o["on"] = Relay::get(i);
-    JsonObject schedule = o["schedule"].to<JsonObject>();
-    schedule["enabled"] = cfg.relays[i].schedule.enabled;
-    schedule["on"] = cfg.relays[i].schedule.on;
-    schedule["off"] = cfg.relays[i].schedule.off;
-    JsonObject detector = o["humanDetector"].to<JsonObject>();
-    detector["enabled"] = cfg.relays[i].humanDetector.enabled;
-    detector["gpio"] = cfg.relays[i].humanDetector.gpio;
-    detector["holdSec"] = cfg.relays[i].humanDetector.holdSec;
-    detector["detected"] = Presence::detected(i);
+    if (cfg.relays[i].schedule.enabled) {
+      JsonObject schedule = o["schedule"].to<JsonObject>();
+      schedule["enabled"] = true;
+      schedule["on"] = cfg.relays[i].schedule.on;
+      schedule["off"] = cfg.relays[i].schedule.off;
+    }
+    if (cfg.relays[i].humanDetector.enabled) {
+      JsonObject detector = o["humanDetector"].to<JsonObject>();
+      detector["enabled"] = true;
+      detector["holdSec"] = cfg.relays[i].humanDetector.holdSec;
+      detector["detected"] = Presence::detected(i);
+    }
   }
 
   if (cfg.fan.enabled) {
@@ -302,7 +305,7 @@ String configJson() {
   return out;
 }
 
-void registerRoutes() {
+void registerRoutes(bool filesystemReady) {
   // ---- Public: dashboard (works without PIN, so family can switch things when MQTT or iTag fails)
   server.on("/api/login", HTTP_POST, [](AsyncWebServerRequest* req) {
     RequestBodyGuard bodyGuard{takeRequestBody(req)};
@@ -466,7 +469,22 @@ void registerRoutes() {
     sendJson(req, 200, s);
   });
 
-  server.serveStatic("/", LittleFS, "/").setDefaultFile("index.html");
+  if (filesystemReady && LittleFS.exists("/index.html")) {
+    server.serveStatic("/", LittleFS, "/").setDefaultFile("index.html");
+  } else {
+    auto sendFallback = [](AsyncWebServerRequest* req) {
+      req->send(503, "text/html",
+                "<!doctype html><html lang=\"en\"><meta charset=\"utf-8\">"
+                "<meta name=\"viewport\" content=\"width=device-width,initial-scale=1\">"
+                "<title>WebUI unavailable</title><body style=\"font-family:sans-serif;padding:20px\">"
+                "<h2>WebUI unavailable</h2>"
+                "<p>LittleFS could not be mounted or <code>/index.html</code> is missing.</p>"
+                "<p>Build and flash the LittleFS image, then restart the device.</p>"
+                "</body></html>");
+    };
+    server.on("/", HTTP_GET, sendFallback);
+    server.on("/index.html", HTTP_GET, sendFallback);
+  }
   server.onNotFound([](AsyncWebServerRequest* req) { req->send(404, "text/plain", "not found"); });
 }
 void processConfigJob() {
@@ -523,7 +541,7 @@ void processConfigJob() {
 
 namespace Web {
 
-bool begin() {
+bool begin(bool filesystemReady) {
   bodyMutex = xSemaphoreCreateMutex();
   configJobMutex = xSemaphoreCreateMutex();
   authMutex = xSemaphoreCreateMutex();
@@ -532,7 +550,7 @@ bool begin() {
     Serial.println("[web] failed to create required mutexes; server not started");
     return false;
   }
-  registerRoutes();
+  registerRoutes(filesystemReady);
   server.begin();
   return true;
 }

@@ -148,8 +148,9 @@ void setup() {
   Serial.println("\nESP32 Home Controller starting");
   logChipInfo();
 
-  if (!LittleFS.begin(true)) {
-    Serial.println("LittleFS mount failed, WebUI unavailable.");
+  const bool filesystemReady = LittleFS.begin(true);
+  if (!filesystemReady) {
+    Serial.println("LittleFS mount failed; WebUI fallback page will be served.");
   }
 
   pinMode(FACTORY_RESET_PIN, INPUT_PULLUP);
@@ -183,7 +184,7 @@ void setup() {
   }
 
   startWifi();
-  if (!Web::begin()) {
+  if (!Web::begin(filesystemReady)) {
     Serial.println("WebUI unavailable: startup synchronization failed.");
   } else {
     Serial.println("WebUI ready.");
