@@ -721,7 +721,8 @@ pre {
             '<span class="relay-icon">' + powerSvg + '</span>' +
             '<span class="relay-badge">OFF</span>' +
           '</div>' +
-          '<span class="relay-name"></span>';
+          '<span class="relay-name"></span>' +
+          '<span class="relay-meta muted"></span>';
         b.querySelector(".relay-name").textContent = r.name;
         b.addEventListener("click", () => toggleRelay(r.index));
         box.appendChild(b);
@@ -732,6 +733,10 @@ pre {
       if (!b) return;
       b.classList.toggle("on", !!r.on);
       b.querySelector(".relay-badge").textContent = r.on ? "ON" : "OFF";
+      const meta = [];
+      if (r.schedule && r.schedule.enabled) meta.push("Jadwal " + r.schedule.on + "–" + r.schedule.off);
+      if (r.humanDetector && r.humanDetector.enabled) meta.push(r.humanDetector.detected ? "PIR: terdeteksi" : "PIR: tidak aktif");
+      b.querySelector(".relay-meta").textContent = meta.join(" · ");
     });
   }
 
@@ -865,8 +870,19 @@ pre {
         '<div class="row2">' +
           '<div><label for="r' + n + 'gpio">Output GPIO</label>' +
           '<select id="r' + n + 'gpio" data-pin data-owner="r' + n + 'en"></select></div>' +
-          '<div><label for="r' + n + 'btn">Button GPIO (momentary, to GND)</label>' +
+          '<div><label for="r' + n + 'btn">Physical button GPIO (optional)</label>' +
           '<select id="r' + n + 'btn" data-pin data-owner="r' + n + 'en"></select></div>' +
+        '</div>' +
+        '<label class="check"><input type="checkbox" id="r' + n + 'sch"> Daily schedule enabled</label>' +
+        '<div class="row2">' +
+          '<div><label for="r' + n + 'on">Turn ON</label><input type="time" id="r' + n + 'on" value="18:00"></div>' +
+          '<div><label for="r' + n + 'off">Turn OFF</label><input type="time" id="r' + n + 'off" value="06:00"></div>' +
+        '</div>' +
+        '<label class="check"><input type="checkbox" id="r' + n + 'pir"> PIR human detector enabled</label>' +
+        '<div class="row2">' +
+          '<div><label for="r' + n + 'pirgpio">PIR GPIO (shared input)</label>' +
+          '<select id="r' + n + 'pirgpio" data-pin data-owner="r' + n + 'pir" data-role="pir"></select></div>' +
+          '<div><label for="r' + n + 'hold">PIR hold (seconds)</label><input type="number" id="r' + n + 'hold" min="1" max="3600" value="60"></div>' +
         '</div>' +
         '<label class="check"><input type="checkbox" id="r' + n + 'ah"> Active high (ON = HIGH)</label>';
       box.appendChild(wrap);
@@ -919,11 +935,14 @@ pre {
         const v = Number(opt.value);
         if (v < 0) { opt.disabled = false; return; }
         const users = usedBy.get(v) || [];
-        opt.disabled = users.some((s) => s !== sel);
+        const sharedPir = sel.dataset.role === "pir" && users.every((s) => s.dataset.role === "pir");
+        opt.disabled = users.some((s) => s !== sel) && !sharedPir;
       });
     });
     let conflict = false;
-    usedBy.forEach((list) => { if (list.length > 1) conflict = true; });
+    usedBy.forEach((list) => {
+      if (list.length > 1 && !list.every((sel) => sel.dataset.role === "pir")) conflict = true;
+    });
     $("#pinWarn").classList.toggle("hidden", !conflict);
   }
 
@@ -953,6 +972,14 @@ pre {
       setSel("r" + n + "gpio", r.gpio);
       setSel("r" + n + "btn", r.button);
       setChk("r" + n + "ah", r.activeHigh);
+      const schedule = r.schedule || {};
+      setChk("r" + n + "sch", schedule.enabled);
+      setVal("r" + n + "on", schedule.on || "18:00");
+      setVal("r" + n + "off", schedule.off || "06:00");
+      const detector = r.humanDetector || {};
+      setChk("r" + n + "pir", detector.enabled);
+      setSel("r" + n + "pirgpio", detector.gpio == null ? -1 : detector.gpio);
+      setVal("r" + n + "hold", detector.holdSec || 60);
     }
 
     setChk("fanEn", c.fan.enabled);
@@ -1056,7 +1083,9 @@ pre {
         name: v("r" + n + "name"),
         gpio: num("r" + n + "gpio"),
         button: num("r" + n + "btn"),
-        activeHigh: ck("r" + n + "ah")
+        activeHigh: ck("r" + n + "ah"),
+        schedule: { enabled: ck("r" + n + "sch"), on: raw("r" + n + "on"), off: raw("r" + n + "off") },
+        humanDetector: { enabled: ck("r" + n + "pir"), gpio: num("r" + n + "pirgpio"), holdSec: num("r" + n + "hold") }
       });
     }
     return data;
