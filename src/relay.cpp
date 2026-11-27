@@ -106,6 +106,21 @@ bool set(uint8_t index, bool on) {
   return enabled;
 }
 
+bool setAutomatic(uint8_t index, bool on) {
+  if (index >= MAX_RELAYS || !stateMutex) return false;
+  ChangeCb cb;
+  bool changed = false;
+  xSemaphoreTake(stateMutex, portMAX_DELAY);
+  if (st[index].enabled) {
+    changed = st[index].on != on;
+    if (changed) { drive(st[index], on); cb = changeCb; }
+  }
+  const bool enabled = st[index].enabled;
+  xSemaphoreGive(stateMutex);
+  if (changed && cb) cb(index, on);
+  return enabled;
+}
+
 bool get(uint8_t index) {
   if (index >= MAX_RELAYS || !stateMutex) return false;
   xSemaphoreTake(stateMutex, portMAX_DELAY);
