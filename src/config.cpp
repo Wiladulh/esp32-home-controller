@@ -287,7 +287,7 @@ bool fromJson(const char* json, AppConfig& out, String& err) {
       !checkString(doc["fan"]["name"], sizeof(out.fan.name), "fan.name", err) ||
       !checkInt(doc["fan"]["maxSpeed"], 2, 3, "fan.maxSpeed", err) ||
       !checkBool(doc["fan"]["activeHigh"], "fan.activeHigh", err) ||
-      !checkInt(doc["sensor"]["type"], 0, 2, "sensor.type", err) ||
+      !checkInt(doc["sensor"]["type"], 0, 3, "sensor.type", err) ||
       !checkInt(doc["sensor"]["gpio"], -1, 39, "sensor.gpio", err) ||
       !checkInt(doc["sensor"]["intervalSec"], 5, 65535, "sensor.intervalSec", err) ||
       !checkBool(doc["itag"]["enabled"], "itag.enabled", err) ||
