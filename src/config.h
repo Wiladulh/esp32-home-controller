@@ -8,7 +8,7 @@ constexpr size_t HOST_LEN = 64;
 constexpr size_t SECRET_LEN = 64;
 
 // Sensor types supported in the GPIO map
-enum class SensorType : uint8_t { None = 0, Dht22 = 1, Ds18b20 = 2 };
+enum class SensorType : uint8_t { None = 0, Dht22 = 1, Ds18b20 = 2, Dht11 = 3 };
 
 struct RelayScheduleCfg {
   bool enabled = false;
