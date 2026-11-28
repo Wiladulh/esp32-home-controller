@@ -35,8 +35,9 @@ void begin() {
   intervalMs = (uint32_t)std::max<uint16_t>(c.intervalSec, (uint16_t)5) * 1000UL;
   haveReading = false;
 
-  if (type == SensorType::Dht22 && pin >= 0) {
-    dht = new DHT(pin, DHT22);
+  if ((type == SensorType::Dht22 || type == SensorType::Dht11) && pin >= 0) {
+    const uint8_t dhtType = type == SensorType::Dht11 ? DHT11 : DHT22;
+    dht = new DHT(pin, dhtType);
     dht->begin();
   } else if (type == SensorType::Ds18b20 && pin >= 0) {
     oneWire = new OneWire(pin);
@@ -55,7 +56,7 @@ void tick() {
   float nextTemp = 0;
   float nextHumidity = 0;
   bool nextHasHumidity = false;
-  if (type == SensorType::Dht22 && dht) {
+  if ((type == SensorType::Dht22 || type == SensorType::Dht11) && dht) {
     nextTemp = dht->readTemperature();
     nextHumidity = dht->readHumidity();
     if (isnan(nextTemp) || isnan(nextHumidity)) return;
